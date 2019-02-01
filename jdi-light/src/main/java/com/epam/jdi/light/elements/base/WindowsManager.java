@@ -2,6 +2,7 @@ package com.epam.jdi.light.elements.base;
 
 import com.epam.jdi.light.common.JDIAction;
 import com.epam.jdi.tools.map.MapArray;
+import org.hamcrest.Matcher;
 import org.openqa.selenium.Alert;
 
 import java.util.Set;
@@ -10,24 +11,28 @@ import static com.epam.jdi.light.common.Exceptions.exception;
 import static com.epam.jdi.light.driver.WebDriverFactory.getDriver;
 import static com.epam.jdi.light.driver.WebDriverFactory.jsExecute;
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class WindowsManager {
     private static Set<String> windowHandlers;
+    private static MapArray<String, String> windowHandles = new MapArray<>();
+
     public static Set<String> getWindows() {
         return windowHandlers = getDriver().getWindowHandles();
     }
+    @JDIAction("Check that new window is opened")
     public static boolean newWindowIsOpened() {
         return windowHandlers.size() < getDriver().getWindowHandles().size();
     }
-    private static MapArray<String, String> windowHandles = new MapArray<>();
-    public static void setWindowName(String name) {
-        windowHandles.update(name, getDriver().getWindowHandle());
+    public static void setWindowName(String value) {
+        windowHandles.update(value, getDriver().getWindowHandle());
     }
+    @JDIAction("Get windows count")
     public static int windowsCount() {
         return getWindows().size();
     }
 
-    @JDIAction
+    @JDIAction("Switch to new window")
     public static void switchToNewWindow() {
         String last = "";
         for (String window : getWindows())
@@ -36,17 +41,17 @@ public class WindowsManager {
             getDriver().switchTo().window(last);
         else throw exception("No windows found");
     }
-    @JDIAction
+    @JDIAction("Open new tab")
     public static void openNewTab() {
         jsExecute("window.open()");
     }
 
-    @JDIAction
+    @JDIAction("Go back to original window")
     public static void originalWindow() {
         getDriver().switchTo().window(getWindows().iterator().next());
     }
 
-    @JDIAction
+    @JDIAction("Switch to window '{number}'")
     public static void switchToWindow(int number) {
         int counter = 0;
         if (getWindows().size() < number)
@@ -59,20 +64,20 @@ public class WindowsManager {
             }
         }
     }
-    @JDIAction
-    public static void switchToWindow(String name) {
-        if (!windowHandles.has(name))
-            throw exception("Window %s not registered. Use setWindowName method to setup window name for current windowHandle", name);
-        getDriver().switchTo().window(windowHandles.get(name));
+    @JDIAction("Switch to window '{0}'")
+    public static void switchToWindow(String value) {
+        if (!windowHandles.has(value))
+            throw exception("Window %s not registered. Use setWindowName method to setup window name for current windowHandle", value);
+        getDriver().switchTo().window(windowHandles.get(value));
     }
-    @JDIAction
+    @JDIAction("Close current window")
     public static void closeWindow() {
         getDriver().close();
         originalWindow();
     }
-    @JDIAction
-    public static void closeWindow(String name) {
-        switchToWindow(name);
+    @JDIAction("Close window '{0}'")
+    public static void closeWindow(String value) {
+        switchToWindow(value);
         closeWindow();
     }
     @JDIAction
@@ -89,10 +94,16 @@ public class WindowsManager {
     public static String getAlertText() {
         return alert().getText();
     }
-
     @JDIAction
+    public static void validateAlert(Matcher<String> text) {
+        assertThat(getAlertText(), text);
+        acceptAlert();
+    }
+
+    @JDIAction("Input '{0}' in alert and accept")
     public static void sendKeysInAlert(String text) {
         alert().sendKeys(text);
+        alert().accept();
     }
 
     private static Alert alert() {

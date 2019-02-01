@@ -1,7 +1,7 @@
 package com.epam.jdi.light.ui.html.base;
 
 import com.epam.jdi.light.common.JDIAction;
-import com.epam.jdi.light.elements.base.UIElement;
+import com.epam.jdi.light.elements.base.BaseUIElement;
 import com.epam.jdi.light.ui.html.asserts.HtmlAssertion;
 import com.epam.jdi.light.ui.html.common.*;
 import org.openqa.selenium.WebElement;
@@ -11,105 +11,191 @@ import java.net.URL;
 import java.util.List;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
-import static com.epam.jdi.light.ui.html.HtmlFactory.$;
+import static com.epam.jdi.light.logger.LogLevels.DEBUG;
+import static com.epam.jdi.light.ui.html.utils.HtmlUtils.getInt;
 import static com.epam.jdi.tools.PrintUtils.print;
 import static java.util.Arrays.asList;
 
-public class HtmlElement extends UIElement implements Text, Button, FileInput, Icon, Image, Link,
+/**
+ * Base html element
+ */
+public class HtmlElement extends BaseUIElement<HtmlElement> implements Text, Button, FileInput, Icon, Image, Link, TextArea,
         TextField, Title, Checkbox, ColorPicker, Range, ProgressBar, DateTimeSelector, NumberSelector {
 
-    public HtmlElement() { }
-    public HtmlElement(WebElement el) { super(el); }
+    public HtmlElement() { setInitClass(HtmlElement.class); }
+    public HtmlElement(WebElement el) { super(el); setInitClass(HtmlElement.class); }
 
-    @JDIAction
+    /**
+     * Gets attribute 'alt'
+     * @return String alt value
+     */
     public String alt() { return getAttribute("alt"); }
-    @JDIAction
+
+    /**
+     * Gets attribute 'src'
+     * @return String src value
+     */
     public String src() { return getAttribute("src"); }
-    @JDIAction
+
+    /**
+     * Gets attribute 'height'
+     * @return String height value
+     */
     public String height() { return getAttribute("height"); }
-    @JDIAction
+
+    /**
+     * Gets attribute 'width'
+     * @return String width value
+     */
     public String width() { return getAttribute("width"); }
-    @JDIAction
+
+    /**
+     * Gets attribute 'href'
+     * @return String href value
+     */
     public String ref() { return getAttribute("href"); }
-    @JDIAction
+
+    /**
+     * Creating a URL
+     * @return URL with value from getRef()
+     */
     public URL url() {
         try { return new URL(ref());
         } catch (MalformedURLException ex) { throw exception(ex.getMessage()); }
     }
 
-    @JDIAction
-    public String placeholder() { return getAttribute("placeholder"); }
-
-    @JDIAction
+    /**
+     * Sets value for lines
+     * @param lines String var arg
+     */
+    @JDIAction("Input '{0}' in '{name}'")
     public void setLines(String... lines) {
+        checkEnabled();
         setText(print(asList(lines), "\\n"));
     }
-    @JDIAction
+
+    /**
+     * Gets lines of text in line
+     * @return List<String> divided by rows
+     */
+    @JDIAction("Get '{name}' lines")
     public List<String> getLines() {
         return asList(getText().split("\\n"));
     }
-    @JDIAction
-    public int rows() { return getInt("rows"); }
-    @JDIAction
-    public int cols() { return getInt("cols"); }
-    @JDIAction
-    public int minlength() { return getInt("minlength"); }
-    @JDIAction
-    public int maxlength() { return getInt("maxlength"); }
-    @JDIAction
-    public String value() { return getAttribute("value"); }
-    @JDIAction
+
+    /**
+     * Gets attribute rows in int
+     * @return int number of rows
+     */
+    public int rows() { return getInt("rows", this); }
+
+    /**
+     * Gets attribute cols in int
+     * @return int number of cols
+     */
+    public int cols() { return getInt("cols", this); }
+
+    /**
+     * Gets attribute minlength in int
+     * @return int value of minlength
+     */
+    public int minlength() { return getInt("minlength", this); }
+
+    /**
+     * Gets attribute maxlength in int
+     * @return int value of maxlength
+     */
+    public int maxlength() { return getInt("maxlength", this); }
+
+    /**
+     * Gets attribute with name min
+     * @return String min value
+     */
     public String min() { return getAttribute("min"); }
-    @JDIAction
+
+    /**
+     * Gets attribute with name max
+     * @return String max value
+     */
     public String max() { return getAttribute("max"); }
-    @JDIAction
+
+    /**
+     * Gets attribute with name step
+     * @return String step value
+     */
     public String step() { return getAttribute("step"); }
 
-    private int getInt(String attr) {
-        String value = getAttribute(attr);
-        try {
-            return Integer.parseInt(value);
-        } catch (Exception ex) { throw exception("Can't parse attribute '%s=%s' to Integer", attr, value); }
-    }
 
-    @JDIAction
-    public void check() {
-        if (!isSelected())
-            click();
-    }
-    @JDIAction
-    public void uncheck() {
-        if (isSelected())
-            click();
-    }
-
-    @JDIAction
+  /**
+   * Gets attribute 'value' from color picker
+   * @return String color value
+   */
     public String color() { return getAttribute("value"); }
-    @JDIAction
-    public void setColor(String color) { setAttribute("value", color); }
-    @JDIAction
-    public void setDateTime(String dateTime) { setAttribute("value", dateTime); }
-    @JDIAction
-    public void uploadFile(String path) { sendKeys(path); }
-    @JDIAction
-    public void setVolume(String volume) {
-        setAttribute("value", volume);
+
+    @JDIAction(value = "Get '{name}' volume", level = DEBUG)
+    public int volume() { return getInt("value", this); }
+    /**
+     * Sets color value
+     * @param color value to set
+     */
+    @JDIAction("Set color '{0}' for '{name}'")
+    public void setColor(String color) {
+        checkEnabled();
+        setAttribute("value", color);
     }
-    @JDIAction
+
+    /**
+     * Sets value for DateTimeSelector
+     * @param dateTime value to set
+     */
+    @JDIAction("Set date '{0}' for '{name}'")
+    public void setDateTime(String dateTime) {
+        checkEnabled();
+        setValue(dateTime);
+    }
+
+    /**
+     * Sets value for FileInput
+     * @param path String value to set
+     */
+    @JDIAction("Upload file '{0}' for '{name}'")
+    public void uploadFile(String path) {
+        checkEnabled();
+        sendKeys(path);
+    }
+
+    /**
+     * Sets value for range element
+     * @param volume String value to set
+     */
+    @JDIAction(value = "Set volume '{0}' for '{name}'", level = DEBUG)
+    public void setVolume(int volume) {
+        checkEnabled();
+        setValue(volume+"");
+    }
+
+    /**
+     * Sets value for NumberSelector
+     * @param number String value to set
+     */
+    @JDIAction("Select number '{0}' for '{name}'")
     public void setNumber(String number) {
-        setAttribute("value", number);
-    }
-    @JDIAction
-    public Title label() {
-        return $("[for="+getAttribute("id")+"]");
-    }
-    @JDIAction
-    public String labelText() {
-        return label().getText();
+        checkEnabled();
+        setValue(number);
     }
 
     @Override
-    public HtmlAssertion is() { return new HtmlAssertion(this); }
+    public HtmlAssertion is() {
+        return new HtmlAssertion(this);
+    }
+
     @Override
-    public HtmlAssertion assertThat() { return is(); }
+    public HtmlAssertion assertThat() {
+      return is();
+    }
+
+    @Override
+    public HtmlElement newElement(WebElement el) {
+        return new HtmlElement(el);
+    }
 }

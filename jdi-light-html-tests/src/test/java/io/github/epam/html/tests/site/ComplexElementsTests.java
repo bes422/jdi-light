@@ -9,13 +9,13 @@ import static com.epam.jdi.light.elements.base.WindowsManager.originalWindow;
 import static io.github.com.StaticSite.*;
 import static io.github.com.enums.ColorsList.Green;
 import static io.github.com.enums.Metals.Gold;
+import static io.github.com.enums.Metals.Silver;
 import static io.github.com.enums.Navigation.*;
 import static io.github.com.enums.NavigationNums.nContactForm;
 import static io.github.com.enums.NavigationNums.nHome;
 import static io.github.com.pages.HomePage.githubLink;
 import static io.github.com.pages.HomePage.jdiText;
-import static io.github.com.pages.MetalAndColorsPage.colors;
-import static io.github.com.pages.MetalAndColorsPage.metals;
+import static io.github.com.pages.MetalAndColorsPage.*;
 import static org.hamcrest.Matchers.containsString;
 
 public class ComplexElementsTests extends TestsInit {
@@ -29,6 +29,7 @@ public class ComplexElementsTests extends TestsInit {
     public void complexTest() {
         colors.select(Green);
         metals.select(Gold);
+        metals2.select(Silver);
         //metalAndColorsPage.vegetables.check(Onion, Tomato);
     }
     @Test
@@ -42,8 +43,17 @@ public class ComplexElementsTests extends TestsInit {
         originalWindow();
     }
     @Test
+    public void menuTest() {
+        leftMenu.select(ContactForm);
+        contactFormPage.checkOpened();
+        leftMenu.select(Home);
+        homePage.checkOpened();
+        leftMenu.select(Service, ComplexTable);
+    }
+    @Test
     public void navigationMenuTest() {
         navigationL.select(ContactForm);
+        navigationL.get(0).click();
         //navigationL.select("Contact form");
         contactFormPage.checkOpened();
         navigationL.select(Home);

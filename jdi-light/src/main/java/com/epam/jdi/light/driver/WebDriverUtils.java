@@ -4,10 +4,12 @@ package com.epam.jdi.light.driver;
  * Created by Roman Iovlev on 14.02.2018 Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
-import static org.openqa.selenium.os.WindowsUtils.killByName;
-
-import com.epam.jdi.light.common.UnixProcessUtils;
 import java.io.IOException;
+
+import static com.epam.jdi.light.common.UnixProcessUtils.killProcessesTree;
+import static com.epam.jdi.light.settings.WebSettings.logger;
+import static java.lang.Runtime.getRuntime;
+import static java.lang.String.format;
 
 public final class WebDriverUtils {
 
@@ -20,10 +22,15 @@ public final class WebDriverUtils {
      */
     public static void killAllSeleniumDrivers() {
         String os = System.getProperty("os.name");
-        if (os.contains("Mac")) {
-            killAllMacOSDriverProcesses();
-        } else {
-            killAllWindowsDriverProcesses();
+        try {
+            if (os.contains("Mac")) {
+                killAllMacOSDriverProcesses();
+            } else {
+                killAllWindowsDriverProcesses();
+            }
+        }
+        catch (Exception ignore){
+            logger.info("Can't kill driver processes");
         }
     }
 
@@ -35,15 +42,18 @@ public final class WebDriverUtils {
     /**
      *
      */
-    private static void killAllWindowsDriverProcesses() {
-        killByName("chromedriver.exe");
-        killByName("geckodriver.exe");
-        killByName("IEDriverServer.exe");
-        killByName("MicrosoftWebDriver.exe");
+    private static void killAllWindowsDriverProcesses() throws IOException {
+        killByName("chromedriver");
+        killByName("geckodriver");
+        killByName("IEDriverServer");
+        killByName("MicrosoftWebDriver");
+    }
+	
+    private static void killByName(String value) throws IOException {
+        getRuntime().exec(format("taskkill /F /IM %s.exe /T", value));
     }
 
     private static void killMacOSDriverProcesses(String browserName) {
-
         String name = null;
         switch (browserName.toLowerCase()) {
             case "firefox":
@@ -63,7 +73,7 @@ public final class WebDriverUtils {
      * @param driverName
      */
     private static void killAllMacOSDriverProcessesByName(String driverName) {
-            UnixProcessUtils.killProcessesTree(driverName);
+            killProcessesTree(driverName);
     }
 
 }

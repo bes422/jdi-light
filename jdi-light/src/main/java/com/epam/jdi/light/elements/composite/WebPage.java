@@ -2,25 +2,28 @@ package com.epam.jdi.light.elements.composite;
 
 import com.epam.jdi.light.common.CheckTypes;
 import com.epam.jdi.light.common.JDIAction;
-import com.epam.jdi.light.driver.WebDriverFactory;
+import com.epam.jdi.light.common.PageChecks;
 import com.epam.jdi.light.elements.base.DriverBase;
 import com.epam.jdi.light.elements.interfaces.INamed;
 import com.epam.jdi.light.elements.pageobjects.annotations.Title;
 import com.epam.jdi.light.elements.pageobjects.annotations.Url;
 import com.epam.jdi.tools.CacheValue;
+import com.epam.jdi.tools.func.JAction1;
 import com.epam.jdi.tools.map.MapArray;
-import org.openqa.selenium.Cookie;
 
+import java.text.MessageFormat;
 import java.util.function.Supplier;
 
 import static com.epam.jdi.light.common.CheckTypes.*;
 import static com.epam.jdi.light.common.Exceptions.exception;
-import static com.epam.jdi.light.driver.WebDriverFactory.hasRunDrivers;
-import static com.epam.jdi.light.driver.WebDriverFactory.jsExecute;
+import static com.epam.jdi.light.common.PageChecks.EVERY_PAGE;
+import static com.epam.jdi.light.common.PageChecks.NEW_PAGE;
+import static com.epam.jdi.light.driver.WebDriverFactory.*;
 import static com.epam.jdi.light.elements.base.OutputTemplates.*;
 import static com.epam.jdi.light.elements.pageobjects.annotations.WebAnnotationsUtil.getUrlFromUri;
-import static com.epam.jdi.light.logger.LogLevels.INFO;
-import static com.epam.jdi.light.logger.LogLevels.STEP;
+import static com.epam.jdi.light.logger.LogLevels.*;
+import static com.epam.jdi.light.settings.TimeoutSettings.PAGE_TIMEOUT;
+import static com.epam.jdi.light.settings.TimeoutSettings.TIMEOUT;
 import static com.epam.jdi.light.settings.WebSettings.DOMAIN;
 import static com.epam.jdi.light.settings.WebSettings.logger;
 import static com.epam.jdi.tools.StringUtils.msgFormat;
@@ -35,19 +38,20 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
  */
 
 public class WebPage extends DriverBase implements INamed {
-    public static boolean CHECK_AFTER_OPEN = false;
-    public String url;
-    public String title;
+    public String url = "";
+    public String title = "";
 
-    private String checkUrl;
-    private CheckTypes checkUrlType = CONTAINS;
-    private CheckTypes checkTitleType = NONE;
+    public String checkUrl;
+    public CheckTypes checkUrlType = CONTAINS;
+    public CheckTypes checkTitleType = CheckTypes.NONE;
+    public <T> Form<T> asForm() {
+        return new Form<>().setPageObject(this).setName(getName()+" Form");
+    }
 
     private static ThreadLocal<String> currentPage = new ThreadLocal<>();
     public static String getCurrentPage() { return currentPage.get(); }
     public static void setCurrentPage(WebPage page) {
         currentPage.set(page.getName());
-        CacheValue.reset();
     }
 
     public WebPage() { }
@@ -56,12 +60,14 @@ public class WebPage extends DriverBase implements INamed {
         new WebPage(url).open();
     }
 
+    @JDIAction(level = DEBUG)
     public static String getUrl() {
-        return WebDriverFactory.getDriver().getCurrentUrl();
+        return getDriver().getCurrentUrl();
     }
 
+    @JDIAction(level = DEBUG)
     public static String getTitle() {
-        return WebDriverFactory.getDriver().getTitle();
+        return getDriver().getTitle();
     }
 
     public void updatePageData(Url urlAnnotation, Title titleAnnotation) {
@@ -93,14 +99,34 @@ public class WebPage extends DriverBase implements INamed {
     }
 
     /**
+     * Opens url specified for page
+     */
+    @JDIAction("Open '{name}'(url={0})")
+    private void open(String url) {
+        CacheValue.reset();
+        driver().navigate().to(url);
+        setCurrentPage(this);
+    }
+    public void open(Object... params) {
+        open(getUrlWithParams(params));
+    }
+    private String getUrlWithParams(Object... params) {
+        return params == null || params.length == 0
+                ? url
+                : url.contains("%s")
+                    ? String.format(url, params)
+                    : MessageFormat.format(url, params);
+    }
+
+    /**
      * Check that page opened
      */
-    @JDIAction
+    @JDIAction("Check that '{name}' is opened (url {checkUrlType} '{checkUrl}'; title {checkTitleType} '{title}')")
     public void checkOpened() {
         if (!hasRunDrivers())
             throw exception("Page '%s' is not opened: Driver is not run", toString());
         String result = Switch(checkUrlType).get(
-                Value(NONE, ""),
+                Value(CheckTypes.NONE, ""),
                 Value(EQUALS, t -> !url().check() ? "Url '%s' doesn't equal to '%s'" : ""),
                 Value(MATCH, t -> !url().match() ? "Url '%s' doesn't match to '%s'" : ""),
                 Value(CONTAINS, t -> !url().contains() ? "Url '%s' doesn't contains '%s'" : "")
@@ -108,7 +134,7 @@ public class WebPage extends DriverBase implements INamed {
         if (isNotBlank(result))
             throw exception("Page '%s' is not opened: %s", getName(), format(result, driver().getCurrentUrl(), checkUrl));
         result = Switch(checkTitleType).get(
-                Value(NONE, ""),
+                Value(CheckTypes.NONE, ""),
                 Value(EQUALS, t -> !title().check() ? "Title '%s' doesn't equal to '%s'" : ""),
                 Value(MATCH, t -> !title().match() ? "Title '%s' doesn't match to '%s'" : ""),
                 Value(CONTAINS, t -> !title().contains() ? "Title '%s' doesn't contains '%s'" : "")
@@ -118,56 +144,48 @@ public class WebPage extends DriverBase implements INamed {
         setCurrentPage(this);
     }
 
+    @JDIAction(level = DEBUG)
     public boolean isOpened() {
         if (!hasRunDrivers())
             return false;
         boolean result = Switch(checkUrlType).get(
-            Value(NONE, t -> true),
-            Value(EQUALS, t -> url().check()),
-            Value(MATCH, t -> url().match()),
-            Value(CONTAINS, t -> url().contains()),
-            Else(false)
+                Value(CheckTypes.NONE, t -> true),
+                Value(EQUALS, t -> url().check()),
+                Value(MATCH, t -> url().match()),
+                Value(CONTAINS, t -> url().contains()),
+                Else(false)
         );
         if (!result) return false;
         result = Switch(checkTitleType).get(
-            Value(NONE, t -> true),
-            Value(EQUALS, t -> title().check()),
-            Value(MATCH, t -> title().match()),
-            Value(CONTAINS, t -> title().contains()),
-            Else(false)
+                Value(CheckTypes.NONE, t -> true),
+                Value(EQUALS, t -> title().check()),
+                Value(MATCH, t -> title().match()),
+                Value(CONTAINS, t -> title().contains()),
+                Else(false)
         );
         if (result)
             setCurrentPage(this);
         return result;
     }
 
-    /**
-     * Opens url specified for page
-     */
-    @JDIAction("Open {url}")
-    public void open() {
-        CacheValue.reset();
-        try {
-            driver().navigate().to(url);
-        } catch (Exception ex) {
-            logger.debug("Second try open page: " + toString());
-            driver().navigate().to(url);
-        }
-        setCurrentPage(this);
-    }
-    @JDIAction
     public void shouldBeOpened() {
+        openePage(url);
+    }
+    public void shouldBeOpened(Object... params) {
+        openePage(getUrlWithParams(params));
+    }
+    @JDIAction("'{name}'(url={0}) should be opened")
+    private void openePage(String url) {
         if (isOpened()) return;
-        open();
+        open(url);
         checkOpened();
     }
-
     /**
      * Reload current page
      */
     @JDIAction("Reload current page")
     public static void refresh() {
-        WebDriverFactory.getDriver().navigate().refresh();
+        getDriver().navigate().refresh();
     }
     public static void reload() { refresh(); }
 
@@ -176,7 +194,7 @@ public class WebPage extends DriverBase implements INamed {
      */
     @JDIAction("Go back to previous page")
     public static void back() {
-        WebDriverFactory.getDriver().navigate().back();
+        getDriver().navigate().back();
     }
 
 
@@ -185,36 +203,20 @@ public class WebPage extends DriverBase implements INamed {
      */
     @JDIAction("Go forward to next page")
     public static void forward() {
-        WebDriverFactory.getDriver().navigate().forward();
+        getDriver().navigate().forward();
     }
 
-    /**
-     * @param cookie Specify cookie
-     *               Add cookie in browser
-     */
-    @JDIAction
-    public static void addCookie(Cookie cookie) {
-        WebDriverFactory.getDriver().manage().addCookie(cookie);
-    }
-
-    /**
-     * Clear browsers cache
-     */
-    @JDIAction("Delete all cookies")
-    public static void clearCache() {
-        WebDriverFactory.getDriver().manage().deleteAllCookies();
-    }
-
-    @JDIAction
+    @JDIAction(level = DEBUG)
     public static void zoom(double factor) {
         jsExecute("document.body.style.transform = 'scale(' + arguments[0] + ')';" +
                         "document.body.style.transformOrigin = '0 0';", factor);
     }
     @JDIAction
     public static String getHtml() {
-        return WebDriverFactory.getDriver().getPageSource();
+        return getDriver().getPageSource();
     }
 
+    @JDIAction(level = DEBUG)
     private static void scroll(int x, int y) {
         jsExecute("window.scrollBy("+x+","+y+")");
     }
@@ -227,19 +229,19 @@ public class WebPage extends DriverBase implements INamed {
         jsExecute("window.scrollTo(0,document.body.scrollHeight)");
     }
 
-    @JDIAction
+    @JDIAction("Scroll screen down on '{0}'")
     public static void scrollDown(int value) {
         scroll(0,value);
     }
-    @JDIAction
+    @JDIAction("Scroll screen up on '{0}'")
     public static void  scrollUp(int value) {
         scroll(0,-value);
     }
-    @JDIAction
+    @JDIAction("Scroll screen to the right on '{0}'")
     public static void  scrollRight(int value) {
         scroll(value,0);
     }
-    @JDIAction
+    @JDIAction("Scroll screen to the left on '{0}'")
     public static void scrollLeft(int value) {
         scroll(-value,0);
     }
@@ -248,9 +250,9 @@ public class WebPage extends DriverBase implements INamed {
     public static void addPage(WebPage page) {
         pages.update(page.getName(), page);
     }
-    public static <T extends WebPage> T getPage(String name) {
-        WebPage page = pages.get(name);
-        return (T) (page == null ? pages.get(name + " Page") : page);
+    public static <T extends WebPage> T getPage(String value) {
+        WebPage page = pages.get(value);
+        return (T) (page == null ? pages.get(value + " Page") : page);
     }
 
     @Override
@@ -308,4 +310,16 @@ public class WebPage extends DriverBase implements INamed {
                     || value.contains(equals);
         }
     }
+
+    public static PageChecks CHECK_AFTER_OPEN = PageChecks.NONE;
+    public static JAction1<WebPage> BEFORE_NEW_PAGE = page -> {
+        if (CHECK_AFTER_OPEN == NEW_PAGE)
+            page.checkOpened();
+        logger.toLog("Page: " + page.getName());
+        TIMEOUT.set(PAGE_TIMEOUT.get());
+    };
+    public static JAction1<WebPage> BEFORE_EACH_PAGE = page -> {
+        if (CHECK_AFTER_OPEN == EVERY_PAGE)
+            page.checkOpened();
+    };
 }

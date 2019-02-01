@@ -19,4 +19,6 @@ import static com.epam.jdi.light.logger.LogLevels.STEP;
 public @interface JDIAction {
     String value() default "";
     LogLevels level() default STEP;
+    String condition() default "";
+    boolean logResult() default true;
 }

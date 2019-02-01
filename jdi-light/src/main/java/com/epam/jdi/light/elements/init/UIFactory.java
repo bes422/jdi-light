@@ -1,29 +1,30 @@
 package com.epam.jdi.light.elements.init;
 
 import com.epam.jdi.light.elements.base.UIElement;
-import com.epam.jdi.light.elements.complex.Dropdown;
+import com.epam.jdi.light.elements.complex.Droplist;
 import com.epam.jdi.light.elements.complex.WebList;
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+
+import java.util.List;
+
+import static com.epam.jdi.light.driver.WebDriverByUtils.defineLocator;
 
 /**
  * Created by Roman_Iovlev on 3/28/2018.
  */
 public class UIFactory {
     public static UIElement element(String locator) {
-        return element(getLocator(locator));
+        return element(defineLocator(locator));
     }
     public static UIElement element(By byLocator) {
-        UIElement el =  new UIElement();
-        el.setLocator(byLocator);
-        return el;
-    }
-    private static By getLocator(String locator) {
-        return locator.charAt(1) == '/'
-                ? By.xpath(locator)
-                : By.cssSelector(locator);
+        return new UIElement(byLocator);
     }
     public static UIElement $(String locator) {
         return element(locator);
+    }
+    public static UIElement $(String locator, Object parent) {
+        return element(locator).setParent(parent);
     }
     public static UIElement $(By locator) {
         return element(locator);
@@ -33,15 +34,19 @@ public class UIFactory {
     }
 
     public static WebList list(String locator) {
-        return list(getLocator(locator));
+        return list(defineLocator(locator));
     }
     public static WebList list(By byLocator) {
-        WebList list =  new WebList();
-        list.setLocator(byLocator);
-        return list;
+        return new WebList(byLocator);
+    }
+    public static WebList list(List<WebElement> els, String name) {
+        return new WebList(els).setName(name);
     }
     public static WebList $$(String locator) {
         return list(locator);
+    }
+    public static WebList $$(String locator, Object parent) {
+        return list(locator).setParent(parent);
     }
     public static WebList $$(By locator) {
         return list(locator);
@@ -49,14 +54,16 @@ public class UIFactory {
     public static WebList $$(By locator, Object parent) {
         return list(locator).setParent(parent);
     }
-
-    public static Dropdown dropdown(String locator) {
-        Dropdown el =  new Dropdown();
-        By byLocator = getLocator(locator);
+    public static WebList $$(List<WebElement> els, String name) {
+        return list(els, name);
+    }
+    public static Droplist dropdown(String locator) {
+        Droplist el =  new Droplist();
+        By byLocator = defineLocator(locator);
         el.setLocator(byLocator);
         return el;
     }
-    public static Dropdown $d(String locator) {
+    public static Droplist $d(String locator) {
         return dropdown(locator);
     }
 }

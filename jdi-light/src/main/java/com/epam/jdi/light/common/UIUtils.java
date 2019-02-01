@@ -5,10 +5,12 @@ package com.epam.jdi.light.common;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
+import com.epam.jdi.light.elements.base.BaseUIElement;
 import com.epam.jdi.light.elements.base.UIElement;
 import com.epam.jdi.light.elements.interfaces.HasValue;
 import com.epam.jdi.light.elements.interfaces.INamed;
 import com.epam.jdi.light.elements.pageobjects.annotations.Name;
+import com.epam.jdi.tools.func.JFunc1;
 import com.epam.jdi.tools.func.JFunc2;
 import com.epam.jdi.tools.map.MapArray;
 import org.openqa.selenium.WebElement;
@@ -19,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
+import static com.epam.jdi.light.elements.init.UIFactory.$;
 import static com.epam.jdi.light.elements.pageobjects.annotations.WebAnnotationsUtil.hasAnnotation;
 import static com.epam.jdi.tools.EnumUtils.getEnumValue;
 import static com.epam.jdi.tools.LinqUtils.*;
@@ -35,11 +38,11 @@ public final class UIUtils {
     public static MapArray<String, String> getMapFromObject(Object obj) {
         if (obj == null)
             return new MapArray<>();
-        return new MapArray<>(getFields(obj, Object.class), UIUtils::getElementName,
+        List<Field> notNullFields = filter(getFields(obj, Object.class),
+            f -> getValueField(f, obj) != null);
+        return new MapArray<>(notNullFields, UIUtils::getElementName,
             field -> {
                 Object value = getValueField(field, obj);
-                if (value == null)
-                    return null;
                 if (isClass(value.getClass(), String.class, Integer.class, Boolean.class))
                     return value.toString();
                 if (isClass(value.getClass(), Enum.class))
@@ -62,16 +65,20 @@ public final class UIUtils {
         return print(elements);
     }
 
-    public static JFunc2<Object, String, UIElement> GET_BUTTON = (obj, buttonName) -> {
+    public static JFunc1<String, UIElement> GET_DEFAULT_BUTTON = (buttonName) -> $("[type=submit]");
+
+    public static JFunc2<Object, String, BaseUIElement> GET_BUTTON = (obj, buttonName) -> {
         List<Field> fields = getFields(obj, WebElement.class);
         switch (fields.size()) {
             case 0:
+                if (obj.getClass().getSimpleName().equals("Form"))
+                    return GET_DEFAULT_BUTTON.execute(buttonName);
                 throw exception("Can't find any buttons on form '%s.", obj);
             case 1:
-                return (UIElement) getValueField(fields.get(0), obj);
+                return (BaseUIElement) getValueField(fields.get(0), obj);
             default:
-                Collection<UIElement> buttons = select(fields, f -> (UIElement) getValueField(f, obj));
-                UIElement button = first(buttons, b -> namesEqual(toButton(b.getName()), toButton(buttonName)));
+                Collection<BaseUIElement> buttons = select(fields, f -> (BaseUIElement) getValueField(f, obj));
+                BaseUIElement button = first(buttons, b -> namesEqual(toButton(b.getName()), toButton(buttonName)));
                 if (button == null)
                     throw exception("Can't find button '%s' for Element '%s'", buttonName, obj);
                 return button;
@@ -92,8 +99,9 @@ public final class UIUtils {
     public static <T> T asEntity(Object obj, Class<T> entityClass) {
         try {
             T data = newEntity(entityClass);
+            List<Field> dataFields = getFields(data, String.class);
             foreach(getFields(obj, HasValue.class), item -> {
-                Field field = first(getFields(data, String.class), f ->
+                Field field = first(dataFields, f ->
                         namesEqual(f.getName(), item.getName()));
                 if (field == null)
                     return;

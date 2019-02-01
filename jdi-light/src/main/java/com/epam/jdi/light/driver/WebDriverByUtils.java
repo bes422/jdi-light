@@ -52,14 +52,6 @@ public final class WebDriverByUtils {
         return getByFunc(by).apply(byLocator);
     }
 
-    public static boolean containsRoot(By by) {
-        return by != null && by.toString().contains(": *root*");
-    }
-    public static By trimRoot(By by) {
-        String byLocator = getByLocator(by).replace("*root*", " ").trim();
-        return getByFunc(by).apply(byLocator);
-    }
-
     public static By fillByMsgTemplate(By by, Object... args) {
         String byLocator = getByLocator(by);
         try {
@@ -164,6 +156,12 @@ public final class WebDriverByUtils {
             return valueOrDefault(replaceChildren(result), one(by));
         } catch (Exception ex) { throw exception("Search By failed"); }
     }
+    public static By defineLocator(String locator) {
+        return locator.length() > 1 && (locator.charAt(1) == '/' || locator.substring(0,2).equals(".."))
+                ? By.xpath(locator)
+                : By.cssSelector(locator);
+    }
+
     private static List<Object> one(By by) {
         List<Object> result = new ArrayList<>();
         result.add(by);
