@@ -1,12 +1,13 @@
 package io.github.epam.html.tests.elements.complex;
 
+import com.epam.jdi.light.ui.html.base.HtmlElement;
 import io.github.epam.TestsInit;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static io.github.com.StaticSite.*;
 import static io.github.com.enums.Navigation.*;
-import static io.github.epam.html.tests.site.steps.Preconditions.shouldBeLoggedIn;
+import static io.github.epam.html.tests.site.steps.States.shouldBeLoggedIn;
 
 public class MenuTests extends TestsInit {
 
@@ -25,6 +26,27 @@ public class MenuTests extends TestsInit {
     @Test
     public void selectEnumTest() {
         leftMenu.select(MetalsColors);
+        metalAndColorsPage.checkOpened();
+    }
+
+    @Test
+    public void selectTestList() {
+        leftMenuList.select("Contact form");
+        contactFormPage.checkOpened();
+    }
+    @Test
+    public void getTestList() {
+        HtmlElement item = leftMenuList.get("Contact form");
+        item.show();
+        item.is().deselected();
+        item.click();
+        item.is().selected();
+        contactFormPage.checkOpened();
+    }
+
+    @Test
+    public void selectEnumTestList() {
+        leftMenuList.select(MetalsColors);
         metalAndColorsPage.checkOpened();
     }
     @Test

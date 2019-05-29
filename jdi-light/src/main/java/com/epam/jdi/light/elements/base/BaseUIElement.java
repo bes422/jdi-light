@@ -5,7 +5,6 @@ package com.epam.jdi.light.elements.base;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
-import com.epam.jdi.light.asserts.IsAssert;
 import com.epam.jdi.light.common.JDIAction;
 import com.epam.jdi.light.elements.interfaces.SetValue;
 import org.openqa.selenium.By;
@@ -14,15 +13,15 @@ import org.openqa.selenium.WebElement;
 import java.util.List;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
-import static com.epam.jdi.light.driver.WebDriverByUtils.defineLocator;
-import static com.epam.jdi.light.driver.WebDriverByUtils.uiSearch;
+import static com.epam.jdi.light.common.UIUtils.create;
+import static com.epam.jdi.light.driver.WebDriverByUtils.*;
 import static com.epam.jdi.light.logger.LogLevels.DEBUG;
 import static com.epam.jdi.tools.EnumUtils.getEnumValue;
 import static com.epam.jdi.tools.LinqUtils.map;
 import static java.lang.Thread.currentThread;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
-public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase implements WebElement, BaseElement, SetValue {
+public abstract class BaseUIElement<T extends BaseUIElement>
+        extends JDIBase implements WebElement, BaseFindElement<T>, SetValue {
     public BaseUIElement() { }
     public BaseUIElement(WebElement el) { webElement.setForce(el); }
     public BaseUIElement(List<WebElement> els) { webElements.setForce(els); }
@@ -35,7 +34,7 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
 
     protected T newElement() {
         try {
-            return initClass.newInstance();
+            return create(initClass);
         }
         catch (Exception ex) {
             throw exception("Can't instantiate %s. Exception: ",
@@ -49,15 +48,27 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
     }
 
     //region WebElement Wrapper
+    /**
+     * Сlick on the element
+     */
     @JDIAction("Click on '{name}'")
     public void click() {
         get().click();
     }
+
+    /**
+     * Submit
+     */
     @JDIAction(level = DEBUG)
     public void submit() {
         get().submit();
     }
-    @JDIAction("Input '{value}' in '{name}'")
+
+    /**
+     * Send specified value as keys
+     * @param value
+     */
+    @JDIAction("Input '{0}' in '{name}'")
     public void sendKeys(CharSequence... value) {
         checkEnabled();
         get().sendKeys(value);
@@ -73,7 +84,10 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
         return find(defineLocator(by));
     }
     public T find(By by) {
-        return newElement(uiSearch(get(), by).get(0));
+        List<WebElement> els = uiSearch(get(), by);
+        if (els.size() > 0)
+            return newElement(els.get(0));
+        throw exception("Can't find sub element by locator %s for %s", shortBy(by), this);
     }
     public List<T> finds(String by) {
         return finds(By.cssSelector(by));
@@ -81,6 +95,8 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
     public List<T> finds(By by) {
         return map(get().findElements(by), this::newElement);
     }
+    public T firstChild() { return find("*"); }
+    public List<T> childs() { return finds("*"); }
     /**
      * If not selected - click to select
      */
@@ -103,10 +119,11 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
 
     public T label() {
         return newElement()
-            .setLocator(By.cssSelector("[for="+getAttribute("id")+"]"))
-            .setName(getName() + " label");
+                .setLocator(By.cssSelector("[for="+getAttribute("id")+"]"))
+                .setName(getName() + " label");
     }
-
+    @Override
+    public String getText() { return super.getText(); }
     /**
      * Gets label text
      * @return String text
@@ -116,20 +133,22 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
         return label().getText();
     }
 
+    /**
+     * Clear
+     */
     @JDIAction("Clear '{name}'")
     public void clear() {
         get().clear();
     }
+
+    /**
+     * Get attribute 'value'
+     * @return String
+     */
     @JDIAction("Get '{name}' text")
-    public String getText() {
-        WebElement el = get();
-        String text = el.getText();
-        if (isNotBlank(text))
-            return text;
-        String value = el.getAttribute("value");
-        return isNotBlank(value) ? value : text;
+    public String getValueText() {
+        return getAttribute("value");
     }
-    public String text() { return getText(); }
 
     public List<WebElement> findElements(By by) {
         return uiSearch(get(),by);
@@ -139,48 +158,83 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
         return findElements(by).get(0);
     }
 
+    /**
+     * Check the element is selected
+     * @return boolean
+     */
     @JDIAction("Check that '{name}' is selected")
     public boolean isSelected() {
         return selected();
     }
+
+    /**
+     * Check the element is deselected
+     * @return boolean
+     */
     @JDIAction("Check that '{name}' is deselected")
     public boolean isDeselected() {
         return !selected();
     }
+
+    /**
+     * Check the element is selected
+     * @return boolean
+     */
     @JDIAction(level = DEBUG)
     private boolean selected() {
         List<String> cl = classes();
         return get().isSelected() || cl.contains("checked") || cl.contains("active")||
-                getAttribute("checked").equals("true");
+                cl.contains("selected") || getAttribute("checked").equals("true");
     }
     //endregion
 
     //region Enchantments
-
+    /**
+     * Сlick on the element
+     */
     @JDIAction("Click on '{name}'")
     public void jsClick() {
         jsExecute("click()");
     }
 
-    @JDIAction("Input '{value}' in '{name}'")
+    /**
+     * Input specified value as keys
+     * @param value
+     */
+    @JDIAction("Input '{0}' in '{name}'")
     public void input(String value) {
         clear();
         sendKeys(value);
     }
+
+    /**
+     * Focus
+     */
     @JDIAction(level = DEBUG)
     public void focus(){ sendKeys(""); }
 
-
+    /**
+     * Get item text
+     * @return String
+     */
     @JDIAction(level = DEBUG) @Override
     public String getValue() {
         return getText();
     }
 
+    /**
+     * Select item by the value
+     * @param value
+     */
     @JDIAction("Select '{0}' in '{name}'")
     public void select(String value) {
         get(value).click();
     }
 
+    /**
+     * Select items by the values
+     * @param names
+     */
     @JDIAction("Select '{0}' in '{name}'")
     public void select(String... names) {
         for (String name : names)
@@ -195,25 +249,16 @@ public abstract class BaseUIElement<T extends BaseUIElement> extends JDIBase imp
     }
 
     /**
-     * Gets attr 'placeholder'
+     * Gets attribute 'placeholder'
      * @return String
      */
     @JDIAction(level = DEBUG)
     public String placeholder() { return getAttribute("placeholder"); }
     /**
-     * Gets attribute with name value
+     * Gets attribute 'value'
      * @return String
      */
     public String value() { return getAttribute("value"); }
 
-    //endregion
-
-    //region Asserts
-    public IsAssert is() {
-        return new IsAssert(this);
-    }
-    public IsAssert assertThat() {
-        return is();
-    }
     //endregion
 }

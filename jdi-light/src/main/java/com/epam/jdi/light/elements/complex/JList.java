@@ -13,158 +13,204 @@ import com.epam.jdi.light.elements.base.UIElement;
 import com.epam.jdi.light.elements.interfaces.SetValue;
 import com.epam.jdi.tools.CacheValue;
 import com.epam.jdi.tools.LinqUtils;
-import com.epam.jdi.tools.Timer;
+import org.apache.commons.lang3.ArrayUtils;
+import org.hamcrest.Matcher;
+import org.hamcrest.MatcherAssert;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
+import static com.epam.jdi.light.common.UIUtils.create;
+import static com.epam.jdi.light.driver.WebDriverByUtils.shortBy;
 import static com.epam.jdi.light.logger.LogLevels.DEBUG;
-import static com.epam.jdi.light.settings.TimeoutSettings.TIMEOUT;
 import static com.epam.jdi.light.settings.WebSettings.logger;
 import static com.epam.jdi.tools.EnumUtils.getEnumValue;
 import static com.epam.jdi.tools.PrintUtils.print;
 import static java.lang.String.format;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 public class JList<T extends BaseUIElement> extends JDIBase
         implements IList<T>, SetValue, ISetup, ISelector {
-    protected CacheValue<List<WebElement>> webElements = new CacheValue<>();
+    protected CacheValue<List<T>> elements = new CacheValue<>();
 
     public JList() {}
     public JList(By locator) { setLocator(locator); }
     public JList(List<WebElement> elements) {
-        this.webElements.setForce(elements);
+        this.elements.setForce(toJList(elements));
     }
+    /**
+     * @param minAmount
+     * @return List
+     */
     protected Class<?> initClass = UIElement.class;
     public JList<T> setInitClass(Class<T> listClass) {
         initClass = listClass;
         return this;
     }
-    public void setup(Field field) {
-        Type[] types;
-        try {
-            types = ((ParameterizedType) field.getGenericType()).getActualTypeArguments();
-        } catch (Exception ex) { return; }
-        if (types.length != 1) return;
-        try {
-            Class<?> initClass = (Class<?>) types[0];
-            if (initClass == WebElement.class)
-                initClass = UIElement.class;
-            setInitClass((Class<T>) initClass);
-        } catch (Exception ex) { throw  exception("Can't init WebList. Weblist elements should extend UIElement"); }
-    }
-    private boolean isActual() {
-        try {
-            webElements.get().get(0).getTagName();
-            return true;
-        } catch (Exception ex) { return false; }
-    }
-    private T getNewInstance(WebElement element) {
-        try {
-            T instance = (T) initClass.newInstance();
-            instance.setWebElement(element).setName(getName());
-            instance.setTypeName(varName);
-            instance.setParent(parent);
-            instance.setLocator(getLocator());
-            return instance;
-        } catch (Exception ex) { throw exception("Can't init new element for list"); }
-    }
+
     @JDIAction(level = DEBUG)
-    public List<T> elements() {
-        try {
-            if (webElements.hasValue() && isActual())
-                return LinqUtils.map(webElements.get(), this::getNewInstance);
-            List<WebElement> result = getAll();
-            if (result.size() > 0)
-                webElements.set(result);
-            return LinqUtils.map(result, this::getNewInstance);
-        } catch (Exception ex) { return new ArrayList<>(); }
+    public List<T> elements(int minAmount) {
+        if (elements.hasValue() && isActual() && elements.get().size() >= minAmount)
+            return elements.get();
+        if (getLocator().toString().contains("%s"))
+            throw exception("You call method that can't be used with template locator. " +
+                    "Please correct %s locator to get List<WebElement> in order to use this method", shortBy(getLocator()));
+        return this.elements.set(toJList(getList(minAmount)));
     }
 
-    @JDIAction("Select '{0}' for '{name}'")
-    public void select(String value) {
-        get(value).click();
-    }
-    @JDIAction("Select ({0}) for '{name}'")
-    public void select(String... names) {
-        for (String value : names)
-            select(value);
-    }
-    public <TEnum extends Enum> void select(TEnum value) {
-        select(getEnumValue(value));
-    }
-    @JDIAction("Select ({0}) for '{name}'")
-    public <TEnum extends Enum> void select(TEnum... names) {
-        for (TEnum value : names)
-            select(value);
-    }
     private String NO_ELEMENTS_FOUND = "Can't select '%s'. No elements with this name found";
+
+    /**
+     * @param value
+     */
     @JDIAction(level = DEBUG)
     public T get(String value) {
-        if (getLocator().toString().contains("%s"))
-            return getNewInstance(super.get(value));
-        List<WebElement> elements = new Timer(TIMEOUT.get()*1000)
-            .getResultByCondition(this::getAll, r -> r.size() > 0);
-        if (elements == null || elements.size() == 0)
-            throw exception(NO_ELEMENTS_FOUND, value);
-        if (elements.size() == 1) {
-            String tagName = elements.get(0).getTagName();
-            WebElement element = elements.get(0);
-            switch (tagName) {
-                case "ul" : elements = element.findElements(By.tagName("li")); break;
-                case "select" : elements = element.findElements(By.tagName("option")); break;
-            }
+        if (getLocator().toString().contains("%s")) {
+            T element = getNewInstance(super.get(value)).setName(value);
+            element.setGetFunc(() -> super.get(value));
+            return element;
         }
-        List<T> htmlElements = LinqUtils.map(elements, this::getNewInstance);
-        T el = LinqUtils.first(htmlElements, e -> e.getText().equals(value));
-        if (el == null) {
-            //el = LinqUtils.first(uiElements, e -> verifyLabel(e, name));
-            //if (el == null)
+        refresh();
+        T el = first(e -> e.getText().equals(value));
+        if (el == null)
             throw exception(NO_ELEMENTS_FOUND, value);
-        }
+        el.setName(value);
+        el.setGetFunc(() -> first(e -> e.getText().equals(value)));
         return el;
     }
     public T get(Enum name) {
         return get(getEnumValue(name));
     }
-    @JDIAction("Select '{0}' for '{names}'")
+
+    /**
+     * @param index
+     */
+    @JDIAction(level = DEBUG)
+    public T get(int index) {
+        if (index < 0)
+            throw exception("Can't get element with index '%s'. Index should be more than 0", index);
+        if (getLocator().toString().contains("%s")) {
+            WebElement element;
+            try {
+                element = super.get(index);
+            } catch (Exception ex) {
+                throw exception("Can't get element with index '%s' for template locator. " +
+                    "Maybe locator is wrong or you need to get element by name. Exception: %s",
+                        index, ex.getMessage());
+            }
+            return getNewInstance(element);
+        }
+        return elements(index).get(index).setName(format("%s[%s]", getName(), index));
+    }
+
+    /**
+     * Select the item by the value
+     * @param value
+     */
+    @JDIAction("Select '{0}' for '{name}'")
+    public void select(String value) {
+        get(value).click();
+    }
+
+    /**
+     * Select the items by the names
+     * @param names
+     */
+    @JDIAction("Select ({0}) for '{name}'")
+    public void select(String... names) {
+        for (String value : names)
+            select(value);
+    }
+
+    /**
+     * Select the items by the values, hover and click on them
+     * @param values
+     */
+    @JDIAction("Select ({0}) for '{name}'")
+    public void hoverAndClick(String... values) {
+        if (ArrayUtils.isEmpty(values))
+            throw exception("Nothing to select in %s", getName());
+        int length = values.length;
+        for (int i=0; i < length-1;i++) {
+            get(values[i]).hover();
+        }
+        get(values[length-1]).click();
+    }
+
+    /**
+     * Select the items by the values, hover and click on them
+     * @param values
+     */
+    @JDIAction("Select ({0}) for '{name}'")
+    public void hoverAndClick(String values) {
+        String[] split = values.split(">");
+        if (split.length == 1)
+            select(split[0]);
+        else hoverAndClick(split);
+    }
+    public <TEnum extends Enum> void select(TEnum value) {
+        select(getEnumValue(value));
+    }
+
+    /**
+     * Select the items by the names
+     * @param names
+     */
+    @JDIAction("Select ({0}) for '{name}'")
+    public <TEnum extends Enum> void select(TEnum... names) {
+        for (TEnum value : names)
+            select(value);
+    }
+
+    /**
+     * Select the item by the index
+     * @param index
+     */
+    @JDIAction("Select '{0}' for '{name}'")
     public void select(int index) {
         get(index).click();
     }
-    @JDIAction("Get '{names}' selected value")
+
+    /**
+     * Select the items by the indexes
+     * @param indexes
+     */
+    @JDIAction("Select ({0}) for '{name}'")
+    public void select(int... indexes) {
+        for (int index : indexes)
+            select(index);
+    }
+
+    /**
+     * Get the selected element value
+     * @return String
+     */
+    @JDIAction("Get '{name}' selected value")
     public String selected() {
+        refresh();
         T first = logger.logOff(() -> first(BaseUIElement::isSelected) );
         return first != null ? first.getText() : "";
     }
 
+    /**
+     * Refresh the element
+     */
     @JDIAction(level = DEBUG)
     public void refresh() {
-        webElements.clear();
-    }
-    @JDIAction(level = DEBUG)
-    public String isSelected() {
-        T first = logger.logOff(() -> first(T::isSelected) );
-        return first != null ? first.getText() : "";
+        elements.clear();
     }
 
+    /**
+     * Clear the element
+     */
     @JDIAction(level = DEBUG)
     public void clear() {
-        webElements.clear();
-    }
-
-    @JDIAction(level = DEBUG)
-    public T get(int index) {
-        List<T> elements = elements();
-        if (elements.size() <= index)
-            throw exception("Can't get element with index '%s'. Found only '%s' elements", index, elements.size());
-        T element = elements.get(index);
-        element.name = format("%s[%s]", getName(), index);
-        return element;
+        refresh();
     }
 
     public void setValue(String value) {
@@ -175,6 +221,9 @@ public class JList<T extends BaseUIElement> extends JDIBase
         return print(values());
     }
 
+    /**
+     * Show all items
+     */
     @JDIAction
     public void showAll() {
         int size;
@@ -198,7 +247,15 @@ public class JList<T extends BaseUIElement> extends JDIBase
     }
 
     public List<String> values() {
+        refresh();
+        noValidation();
         return map(T::getText);
+    }
+
+    public List<String> innerValues() {
+        refresh();
+        noValidation();
+        return map(T::innerText);
     }
 
     @Override
@@ -212,12 +269,60 @@ public class JList<T extends BaseUIElement> extends JDIBase
         return ifSelect(JDIBase::isDisabled,
                 BaseUIElement::getText);
     }
+
     //region matchers
     public ListAssert<T> is() {
-        return new ListAssert<>(this, this, toError());
+        return new ListAssert<>(() -> {refresh(); return this; }, () -> {refresh(); return this; }, toError());
+    }
+    @JDIAction("Assert that {name} list meet condition")
+    public ListAssert<T> is(Matcher<? super List<T>> condition) {
+        MatcherAssert.assertThat(this, condition);
+        return is();
+    }
+    public ListAssert<T> assertThat(Matcher<? super List<T>> condition) {
+        return is(condition);
     }
     public ListAssert<T> assertThat() {
         return is();
     }
+    public ListAssert<T> has() {
+        return is();
+    }
+    public ListAssert<T> waitFor() {
+        return is();
+    }
+    public ListAssert<T> shouldBe() {
+        return is();
+    }
     //endregion
+    public void setup(Field field) {
+        Type[] types;
+        try {
+            types = ((ParameterizedType) field.getGenericType()).getActualTypeArguments();
+        } catch (Exception ex) { return; }
+        if (types.length != 1) return;
+        try {
+            Class<?> initClass = (Class<?>) types[0];
+            if (initClass == WebElement.class)
+                initClass = UIElement.class;
+            setInitClass((Class<T>) initClass);
+        } catch (Exception ex) { throw  exception("Can't init WebList. Weblist elements should extend UIElement"); }
+    }
+    private boolean isActual() {
+        try {
+            return elements.get().size() > 0 && isNotBlank(elements.get().get(0).getTagName());
+        } catch (Exception ex) { return false; }
+    }
+    private List<T> toJList(List<WebElement> webElements) {
+        return LinqUtils.map(webElements, this::getNewInstance);
+    }
+    private T getNewInstance(WebElement element) {
+        try {
+            T instance = create(initClass);
+            instance.setWebElement(element).setName(getName());
+            instance.setTypeName(typeName);
+            instance.setParent(parent);
+            return instance;
+        } catch (Exception ex) { throw exception("Can't init new element for list"); }
+    }
 }

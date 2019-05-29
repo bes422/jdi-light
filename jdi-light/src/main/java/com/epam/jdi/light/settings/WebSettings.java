@@ -5,12 +5,14 @@ package com.epam.jdi.light.settings;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
+import com.epam.jdi.light.asserts.SoftAssert;
 import com.epam.jdi.light.common.Timeout;
 import com.epam.jdi.light.elements.base.JDIBase;
 import com.epam.jdi.light.elements.base.UIElement;
 import com.epam.jdi.light.logger.ILogger;
-import com.epam.jdi.light.logger.JDILogger;
 import com.epam.jdi.tools.PropertyReader;
+import com.epam.jdi.tools.Safe;
+import com.epam.jdi.tools.StringUtils;
 import com.epam.jdi.tools.func.JAction1;
 import com.epam.jdi.tools.func.JFunc1;
 import org.openqa.selenium.PageLoadStrategy;
@@ -26,23 +28,40 @@ import static com.epam.jdi.light.common.PageChecks.parse;
 import static com.epam.jdi.light.driver.ScreenshotMaker.SCREEN_PATH;
 import static com.epam.jdi.light.driver.WebDriverFactory.INIT_THREAD_ID;
 import static com.epam.jdi.light.driver.get.DriverData.*;
+import static com.epam.jdi.light.elements.base.DriverBase.DEFAULT_DRIVER;
 import static com.epam.jdi.light.elements.composite.WebPage.CHECK_AFTER_OPEN;
 import static com.epam.jdi.light.elements.init.UIFactory.$;
+import static com.epam.jdi.light.logger.JDILogger.instance;
 import static com.epam.jdi.light.settings.TimeoutSettings.PAGE_TIMEOUT;
 import static com.epam.jdi.light.settings.TimeoutSettings.TIMEOUT;
 import static com.epam.jdi.tools.PropertyReader.fillAction;
 import static com.epam.jdi.tools.PropertyReader.getProperty;
-import static com.epam.jdi.tools.StringUtils.splitHyphen;
 import static java.lang.Integer.parseInt;
 import static java.util.Arrays.asList;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.openqa.selenium.PageLoadStrategy.*;
 
 public class WebSettings {
-    public static ILogger logger = JDILogger.instance("JDI");
+    public static ILogger logger = instance("JDI");
     public static String DOMAIN;
     public static String KILL_BROWSER = "afterAndBefore";
-    public static JFunc1<WebElement, Boolean> SEARCH_CONDITION = WebElement::isDisplayed;
+    public static JFunc1<WebElement, Boolean> ANY_ELEMENT = Objects::nonNull;
+    public static JFunc1<WebElement, Boolean> VISIBLE_ELEMENT = WebElement::isDisplayed;
+    public static JFunc1<WebElement, Boolean> ENABLED_ELEMENT = el ->
+        el != null && el.isDisplayed() && el.isEnabled();
+    public static JFunc1<WebElement, Boolean> SEARCH_CONDITION = VISIBLE_ELEMENT;
+    public static void setSearchRule(JFunc1<WebElement, Boolean> rule) {
+        SEARCH_CONDITION = rule;
+    }
+    public static void noValidation() {
+        SEARCH_CONDITION = ANY_ELEMENT;
+    }
+    public static void onlyVisible() {
+        SEARCH_CONDITION = VISIBLE_ELEMENT;
+    }
+    public static void enabledElement() {
+        SEARCH_CONDITION = ENABLED_ELEMENT;
+    }
     public static boolean STRICT_SEARCH = true;
     public static boolean hasDomain() {
         return DOMAIN != null && DOMAIN.contains("://");
@@ -52,13 +71,16 @@ public class WebSettings {
     // TODO multi properties example
     public static String TEST_PROPERTIES_PATH = "test.properties";
     public static String DRIVER_REMOTE_URL;
-    public static String TEST_NAME;
+    public static Safe<String> TEST_NAME = new Safe<>((String) null);
 
     public static List<String> SMART_SEARCH_LOCATORS = new ArrayList<>();
+    public static JFunc1<String, String> SMART_SEARCH_NAME = StringUtils::splitHyphen;
     public static JFunc1<JDIBase, WebElement> SMART_SEARCH = el -> {
-        String locatorName = splitHyphen(el.name);
+        String locatorName = SMART_SEARCH_NAME.execute(el.name);
         for (String template : SMART_SEARCH_LOCATORS) {
-            UIElement ui = $(String.format(template, locatorName)).setName(el.name);
+            UIElement ui = template.equals("#%s")
+                ? $(String.format(template, locatorName)).setName(el.name)
+                : $(String.format(template, locatorName), el.parent).setName(el.name);
             try {
                 return ui.get();
             } catch (Exception ignore) { }
@@ -72,19 +94,20 @@ public class WebSettings {
             fillAction(p -> TIMEOUT = new Timeout(parseInt(p)), "timeout.wait.element");
             fillAction(p -> PAGE_TIMEOUT = new Timeout(parseInt(p)), "timeout.wait.page");
             fillAction(p -> DOMAIN = p, "domain");
-            fillAction(p -> DRIVER_NAME = p, "driver");
-            fillAction(p -> DRIVER_VERSION = p, "drivers.version");
+            if (DRIVER_NAME.equals(DEFAULT_DRIVER))
+                fillAction(p -> DRIVER_NAME = p, "driver");
+            fillAction(p -> DRIVER_VERSION = p.equalsIgnoreCase(LATEST_VERSION)
+                    ? LATEST_VERSION : (p.equalsIgnoreCase(PRELATEST_VERSION))
+                        ? PRELATEST_VERSION : p, "drivers.version");
             fillAction(p -> DRIVERS_FOLDER = p, "drivers.folder");
             fillAction(p -> SCREEN_PATH = p, "screens.folder");
-            fillAction(p -> DRIVER_VERSION =
-                    p.toLowerCase().equals("true") || p.toLowerCase().equals("1")
-                            ? "LATEST" : "", "drivers.getLatest");
             // TODO fillAction(p -> asserter.doScreenshot(p), "screenshot.strategy");
             fillAction(p -> KILL_BROWSER = p, "browser.kill");
             fillAction(WebSettings::setSearchStrategy, "element.search.strategy");
             fillAction(p -> BROWSER_SIZE = p, "browser.size");
             fillAction(p -> PAGE_LOAD_STRATEGY = getPageLoadStrategy(p), "page.load.strategy");
             fillAction(p -> CHECK_AFTER_OPEN = parse(p), "page.check.after.open");
+            fillAction(SoftAssert::setAssertType, "assert.type");
 
             // RemoteWebDriver properties
             fillAction(p -> DRIVER_REMOTE_URL = p, "driver.remote.url");
@@ -120,9 +143,9 @@ public class WebSettings {
         if (p.split(",").length == 2) {
             List<String> params = asList(p.split(","));
             if (params.contains("visible") || params.contains("displayed"))
-                SEARCH_CONDITION = WebElement::isDisplayed;
+                onlyVisible();
             if (params.contains("any") || params.contains("all"))
-                SEARCH_CONDITION = Objects::nonNull;
+                noValidation();
             if (params.contains("single"))
                 STRICT_SEARCH = true;
             if (params.contains("multiple"))

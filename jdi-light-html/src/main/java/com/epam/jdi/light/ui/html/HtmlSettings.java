@@ -5,14 +5,11 @@ package com.epam.jdi.light.ui.html;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
-import com.epam.jdi.light.elements.base.BaseElement;
 import com.epam.jdi.light.elements.base.BaseUIElement;
+import com.epam.jdi.light.elements.base.UIElement;
 import com.epam.jdi.light.elements.complex.UIList;
-import com.epam.jdi.light.elements.complex.WebList;
 import com.epam.jdi.light.elements.composite.Form;
 import com.epam.jdi.light.elements.init.PageFactory;
-import com.epam.jdi.light.elements.init.UIFactory;
-import com.epam.jdi.light.elements.init.rules.InitRule;
 import com.epam.jdi.light.elements.interfaces.HasValue;
 import com.epam.jdi.light.elements.interfaces.SetValue;
 import com.epam.jdi.light.elements.pageobjects.annotations.Title;
@@ -20,19 +17,15 @@ import com.epam.jdi.light.settings.WebSettings;
 import com.epam.jdi.light.ui.html.annotations.FillValue;
 import com.epam.jdi.light.ui.html.annotations.VerifyValue;
 import com.epam.jdi.light.ui.html.base.*;
-import com.epam.jdi.light.ui.html.common.Button;
-import com.epam.jdi.light.ui.html.common.TextArea;
+import com.epam.jdi.light.ui.html.common.*;
 import com.epam.jdi.light.ui.html.complex.*;
-import com.epam.jdi.tools.map.MapArray;
 import org.openqa.selenium.WebElement;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.epam.jdi.light.common.Exceptions.exception;
-import static com.epam.jdi.light.common.UIUtils.GET_BUTTON;
-import static com.epam.jdi.light.common.UIUtils.getButtonByName;
+import static com.epam.jdi.light.common.UIUtils.*;
 import static com.epam.jdi.light.elements.init.InitActions.*;
 import static com.epam.jdi.light.elements.init.rules.InitRule.iRule;
 import static com.epam.jdi.light.elements.init.rules.SetupRule.sRule;
@@ -40,44 +33,43 @@ import static com.epam.jdi.light.settings.WebSettings.initialized;
 import static com.epam.jdi.tools.LinqUtils.filter;
 import static com.epam.jdi.tools.LinqUtils.first;
 import static com.epam.jdi.tools.ReflectionUtils.*;
-import static com.epam.jdi.tools.map.MapArray.map;
 import static com.epam.jdi.tools.pairs.Pair.$;
+import static java.util.Arrays.asList;
 
 public class HtmlSettings {
 
     public static synchronized void init() {
         if (!initialized) {
             WebSettings.init();
-            MapArray<String, InitRule> newRules = map(
-                $("WebList", iRule(f -> f.getType() == WebList.class, info -> new WebList())),
-                $("HtmlList", iRule(f -> f.getType() == HtmlList.class || isInterface(f,Menu.class)
-                    || isList(f, WebElement.class), info -> new HtmlList())),
+            INIT_RULES.update("Selector", iRule(asList(Dropdown.class, MultiSelector.class),
+                info -> new HtmlSelector()));
+            INIT_RULES.update("UIElement", iRule(WebElement.class,
+                info -> new HtmlElement()));
+            INIT_RULES.update("WebList", iRule(f -> isList(f, WebElement.class) ||
+                f.getType() == Menu.class, info -> new HtmlList()));
+            INIT_RULES.addAll(asList(
                 $("Combobox", iRule(f -> isInterface(f, DataList.class), info -> new HtmlCombobox())),
-                $("Checklist", iRule(f -> f.getType() == Checklist.class, info -> new HtmlChecklist())),
-                $("RadioButtons", iRule(f -> f.getType() == RadioButtons.class, info -> new HtmlRadioGroup())),
-                $("MultiDropdown", iRule(f -> f.getType() == MultiDropdown.class, info -> new HtmlMultiDropdown())),
-                $("BaseSelector", iRule(f -> isInterface(f, BaseSelector.class), info -> new HtmlSelector())),
-                $("TextArea", iRule(f -> f.getType() == TextArea.class, info -> new TextAreaElement()))
-            );
-            INIT_RULES.removeByKey("WebList");
-            INIT_RULES.update("Selector",
-                iRule(f -> isInterface(f, BaseSelector.class), info -> new HtmlSelector()));
-            INIT_RULES.update("UIElement",
-                iRule(f -> isInterface(f, BaseElement.class) || isInterface(f, WebElement.class),
-                    info -> new HtmlElement()));
-            INIT_RULES = newRules.merge(INIT_RULES);
+                $("Checklist", iRule(Checklist.class, info -> new HtmlChecklist())),
+                $("RadioButtons", iRule(RadioButtons.class, info -> new HtmlRadioGroup())),
+                $("MultiDropdown", iRule(MultiDropdown.class, info -> new HtmlMultiDropdown())),
+                $("TextArea", iRule(TextArea.class, info -> new TextAreaElement())),
+                $("Default", iRule(asList(Text.class, Button.class, FileInput.class, Icon.class,
+                    Image.class, Link.class, TextArea.class, TextField.class,
+                    Label.class,
+                    Checkbox.class, ColorPicker.class, Range.class, ProgressBar.class,
+                    DateTimeSelector.class, NumberSelector.class),
+                        info -> new HtmlElement()))
+            ));
             SETUP_RULES.update("PageObject",
                 sRule(info -> isPageObject(info.instance.getClass()),
                     PageFactory::initElements));
             GET_BUTTON = (obj, buttonName) -> {
                 List<Field> fields = getFieldsExact(obj, Button.class);
                 if (fields.size() == 0)
-                    fields = getFields(obj, WebElement.class);
+                    fields = getFieldsExact(obj, WebElement.class, UIElement.class);
                 switch (fields.size()) {
                     case 0:
-                        if (obj.getClass().getSimpleName().equals("Form"))
-                            return UIFactory.$("[type=submit]");
-                        throw exception("Can't find any buttons on form '%s.", obj);
+                        return GET_DEFAULT_BUTTON.execute(obj, buttonName);
                     case 1:
                         return (BaseUIElement) getValueField(fields.get(0), obj);
                     default:
@@ -112,7 +104,7 @@ public class HtmlSettings {
                 if (expectedField != null)
                     return expectedField.getName();
                 List<Field> titles = filter(fields,
-                    f -> f.getType() == com.epam.jdi.light.ui.html.common.Title.class);
+                    f -> f.getType() == Label.class);
                 return titles.size() == 1
                         ? titles.get(0).getName()
                         : null;

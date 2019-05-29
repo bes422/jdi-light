@@ -7,7 +7,7 @@ import org.testng.annotations.Test;
 import static io.github.com.StaticSite.html5Page;
 import static io.github.com.pages.HtmlElementsPage.bookingTime;
 import static io.github.epam.html.tests.elements.BaseValidations.baseValidation;
-import static io.github.epam.html.tests.site.steps.Preconditions.shouldBeLoggedIn;
+import static io.github.epam.html.tests.site.steps.States.shouldBeLoggedIn;
 import static org.hamcrest.Matchers.*;
 import static org.testng.Assert.assertEquals;
 
@@ -42,7 +42,7 @@ public class TimeTests extends TestsInit {
     @Test
     public void setDateTimeTest() {
         bookingTime.setDateTime("05:00");
-        bookingTime.hover();
+        bookingTime.show();
         assertEquals(bookingTime.value(), "05:00");
     }
 

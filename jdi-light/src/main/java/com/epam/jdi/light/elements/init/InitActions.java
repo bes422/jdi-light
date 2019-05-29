@@ -1,12 +1,8 @@
 package com.epam.jdi.light.elements.init;
 
-import com.epam.jdi.light.common.JDILocator;
-import com.epam.jdi.light.elements.base.DriverBase;
-import com.epam.jdi.light.elements.base.JDIBase;
-import com.epam.jdi.light.elements.base.JDIElement;
-import com.epam.jdi.light.elements.base.UIElement;
+import com.epam.jdi.light.elements.base.*;
 import com.epam.jdi.light.elements.complex.ISetup;
-import com.epam.jdi.light.elements.complex.Selector;
+import com.epam.jdi.light.elements.complex.JList;
 import com.epam.jdi.light.elements.complex.UIList;
 import com.epam.jdi.light.elements.complex.WebList;
 import com.epam.jdi.light.elements.composite.Section;
@@ -19,7 +15,6 @@ import com.epam.jdi.tools.LinqUtils;
 import com.epam.jdi.tools.func.JFunc1;
 import com.epam.jdi.tools.map.MapArray;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
 import java.lang.reflect.Field;
@@ -28,7 +23,7 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
-import static com.epam.jdi.light.common.LocatorType.FRAME;
+import static com.epam.jdi.light.common.UIUtils.create;
 import static com.epam.jdi.light.driver.WebDriverFactory.getDriver;
 import static com.epam.jdi.light.driver.get.DriverData.DRIVER_NAME;
 import static com.epam.jdi.light.elements.init.PageFactory.initElement;
@@ -64,10 +59,10 @@ public class InitActions {
 
     public static JFunc1<SiteInfo, Object> SETUP_PAGE_OBJECT_ON_SITE = info -> {
         try {
-            info.instance = info.field.getType().newInstance();
+            info.instance = create(info.field.getType());
         } catch (Exception ignore) {
             try {
-                info.instance = info.field.getType().getDeclaredConstructor(WebDriver.class).newInstance(getDriver());
+                info.instance = create(info.field.getType(),getDriver());
             } catch (Exception ex) {
                 throw exception("Can't initialize Page Object '%s'. Exception: %s", info.field.getName(), ex.getMessage());
             }
@@ -75,29 +70,21 @@ public class InitActions {
         initElements(info);
         return info.instance;
     };
-//
+
     public static MapArray<String, InitRule> INIT_RULES = map(
-        $("Selector", iRule(f -> f.getType() ==  Selector.class,
-            info -> new Selector())),
-        $("UIElement", iRule(f -> f.getType() == WebElement.class
-            || f.getType() == UIElement.class,
-            info -> new UIElement()
-        )),
-        $("WebList", iRule(f -> f.getType() == WebList.class || isList(f, WebElement.class),
-            info -> new WebList())),
-        $("UIList", iRule(f -> (f.getType() == List.class)
-                && isPageObject(getGenericType(f)),
-            f -> new UIList(getGenericType(f.field)))),
-        $("PageObject", iRule(f -> isPageObject(f.getType()),
-            InitActions::initSection)),
-        $("Default", iRule(f -> isClass(f, DriverBase.class),
-            info -> info.field.getType().newInstance()))
+        $("UIElement", iRule(WebElement.class, info -> new UIElement())),
+        $("WebList", iRule(f -> isList(f, WebElement.class), info -> new WebList())),
+        $("UIList", iRule(f -> f.getType() == List.class && isPageObject(getGenericType(f)),
+            f -> new UIList())),
+        $("JList", iRule(f -> f.getType() == List.class &&
+            (isClass(getGenericType(f), BaseUIElement.class) || isInterface(getGenericType(f), BaseFindElement.class)),
+            f -> new JList()))
     );
 
     public static MapArray<String, SetupRule> SETUP_RULES = map(
         $("Element", sRule(info -> isClass(info.instance.getClass(), JDIBase.class),
             InitActions::elementSetup)),
-        $("ISetup", sRule(info -> isInterface(info.field, ISetup.class)
+        $("ISetup", sRule(info -> isInterface(info.instance.getClass(), ISetup.class)
                 || hasSetupValue(info),
             info -> ((ISetup)info.instance).setup(info.field))),
         $("Page", sRule(info -> isClass(info.instance.getClass(), WebPage.class),
@@ -125,8 +112,8 @@ public class InitActions {
             Default(null)
         );
         DriverBase jdi = (DriverBase) info.instance;
-        jdi.setName(info.field.getName(), parentName);
-        jdi.setTypeName(info.instance.getClass().getName());
+        jdi.setName(info.field, parentName);
+        //jdi.setTypeName(info.instance.getClass().getName());
         jdi.parent = info.parent;
         jdi.driverName = isBlank(info.driverName) ? DRIVER_NAME : info.driverName;
         info.instance = jdi;
@@ -141,7 +128,7 @@ public class InitActions {
         if (info.field.getAnnotation(Root.class) != null)
             jdi.locator.isRoot = true;
         if (hasAnnotation(info.field, Frame.class))
-            jdi.locator = new JDILocator(getFrame(info.field.getAnnotation(Frame.class)), FRAME, jdi.name);
+            jdi.setFrame(getFrame(info.field.getAnnotation(Frame.class)));
         info.instance = jdi;
     }
 
@@ -164,42 +151,43 @@ public class InitActions {
             return findByToBy(field.getAnnotation(WithText.class));
         return null;
     }
-    public static <T> T initSection(SiteInfo info) {
-        try {
-            return (T) info.fieldType().newInstance();
-        } catch (Exception ex) {
-            throw exception("Can't instantiate Section field '%s' on page '%s'", info.field.getName(), info.parentName());
-        }
-    }
     public static boolean isJDIField(Field field) {
         return isInterface(field, WebElement.class) ||
-                isInterface(field, JDIElement.class) ||
-                isList(field, WebElement.class) ||
-                isList(field, Section.class);
+            isInterface(field, JDIElement.class) ||
+            isListOf(field, WebElement.class) ||
+            isListOf(field, JDIElement.class) ||
+            isListOf(field, Section.class);
     }
     public static boolean isPageObject(Class<?> type) {
         return isClass(type, Section.class) || isClass(type, WebPage.class) ||
-            LinqUtils.any(type.getFields(), InitActions::isJDIField);
+            LinqUtils.any(type.getDeclaredFields(), InitActions::isJDIField);
     }
     public static boolean isList(Field field, Class<?> type) {
         try {
             return field.getType() == List.class
-                && isInterface(getGenericType(field), type);
+                && getGenericType(field) == type;
         } catch (Exception ex) { return false; }
     }
-
+    public static boolean isListOf(Field field, Class<?> type) {
+        try {
+            if (field.getType() != List.class)
+                return false;
+            Class<?> generic = getGenericType(field);
+            return isClass(generic, type) || isInterface(generic, type);
+        } catch (Exception ex) { return false; }
+    }
     public static Type[] getGenericTypes(Field field) {
         try {
             return ((ParameterizedType) field.getGenericType()).getActualTypeArguments();
         } catch (Exception ex) {
-            throw exception(field.getName() + " is List but has no Generic type");
+            throw exception( "'%s' is List but has no Generic types", field.getName());
         }
     }
     public static Class<?> getGenericType(Field field) {
         try {
             return (Class<?>) ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
         } catch (Exception ex) {
-            throw exception(field.getName() + " is List but has no Generic type");
+            throw exception("'%s' is List but has no Generic type", field.getName());
         }
     }
 }

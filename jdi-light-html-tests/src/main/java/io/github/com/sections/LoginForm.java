@@ -5,8 +5,19 @@ import com.epam.jdi.light.ui.html.common.Button;
 import com.epam.jdi.light.ui.html.common.TextField;
 import io.github.com.entities.User;
 
-public class LoginForm extends Form<User> {
-	public TextField name, password;
-	public Button loginButton;
+import static io.github.com.pages.Header.userIcon;
 
+public class LoginForm extends Form<User> {
+	TextField name, password;
+	Button loginButton;
+
+	public void shouldBeOpened() {
+		if (isHidden()) {
+			userIcon.click();
+		}
+	}
+
+	public boolean isHidden() {
+		return name.isHidden();
+	}
 }

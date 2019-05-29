@@ -7,7 +7,7 @@ import org.testng.annotations.Test;
 import static io.github.com.StaticSite.html5Page;
 import static io.github.com.pages.HtmlElementsPage.partyTime;
 import static io.github.epam.html.tests.elements.BaseValidations.baseValidation;
-import static io.github.epam.html.tests.site.steps.Preconditions.shouldBeLoggedIn;
+import static io.github.epam.html.tests.site.steps.States.shouldBeLoggedIn;
 import static org.hamcrest.Matchers.*;
 import static org.testng.Assert.assertEquals;
 
@@ -38,11 +38,10 @@ public class DateTimeTests extends TestsInit {
     public void maxTest() {
         assertEquals(partyTime.max(), "2018-06-14T00:00");
     }
-
     @Test
     public void setDateTimeTest() {
         partyTime.setDateTime("2017-05-10T00:00");
-        partyTime.hover();
+        partyTime.show();
         assertEquals(partyTime.value(), "2017-05-10T00:00");
     }
 

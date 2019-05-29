@@ -1,5 +1,6 @@
 package com.epam.jdi.light.ui.html.base;
 
+import com.epam.jdi.light.asserts.IHasAssert;
 import com.epam.jdi.light.asserts.SelectAssert;
 import com.epam.jdi.light.elements.base.BaseElement;
 import com.epam.jdi.light.elements.interfaces.SetValue;
@@ -11,7 +12,7 @@ import java.util.List;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
-public interface BaseSelector extends BaseElement, SetValue {
+public interface BaseSelector extends BaseElement, SetValue, IHasAssert<SelectAssert> {
     void select(String value);
     <TEnum extends Enum> void select(TEnum value);
     void select(int index);
@@ -19,6 +20,4 @@ public interface BaseSelector extends BaseElement, SetValue {
     List<String> listEnabled();
     List<String> listDisabled();
 
-    SelectAssert is();
-    SelectAssert assertThat();
 }

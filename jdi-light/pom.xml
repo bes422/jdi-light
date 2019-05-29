@@ -7,13 +7,8 @@
     <artifactId>jdi-light</artifactId>
     <name>JDI Light</name>
     <packaging>jar</packaging>
-    <version>1.0.35</version>
+    <version>1.0.63</version>
     <groupId>com.epam.jdi</groupId>
-
-    <!--parent>
-        <version>1.0.35</version>
-        <artifactId>jdi-2</artifactId>
-    </parent-->
 
     <properties>
         <surefire.version>2.20</surefire.version>
@@ -36,7 +31,7 @@
         <dependency>
             <groupId>com.epam.jdi.tools</groupId>
             <artifactId>jdi-light-saber</artifactId>
-            <version>2.0.44</version>
+            <version>2.0.54</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -90,7 +85,6 @@
             <version>RELEASE</version>
         </dependency>
 
-        <!-- From general pom -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
@@ -177,6 +171,28 @@
                     <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.eluder.coveralls</groupId>
+                <artifactId>coveralls-maven-plugin</artifactId>
+                <version>4.3.0</version>
+                <configuration>
+                    <repoToken></repoToken>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>cobertura-maven-plugin</artifactId>
+                <version>2.7</version>
+                <configuration>
+                    <format>xml</format>
+                    <maxmem>256m</maxmem>
+                    <aggregate>true</aggregate>
+                    <check/>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 

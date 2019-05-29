@@ -7,9 +7,7 @@ import io.github.epam.entities.UserInfo;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
-import static com.epam.jdi.light.elements.base.WindowsManager.validateAlert;
+import static com.epam.jdi.light.elements.base.Alerts.validateAlert;
 import static io.github.com.StaticSite.tablePage;
 import static io.github.com.pages.PerformancePage.*;
 import static io.github.epam.test.data.TableData.GRADY_BROCK;
@@ -33,6 +31,10 @@ public class DataTableTests extends StaticTestsInit {
     public void jDataTableTest() {
         dataTableValidation(usersDataSetup);
     }
+    @Test
+    public void customDataTableTest() {
+        dataTableValidation(customUsersDataSetup);
+    }
     private void dataTableValidation(DataTable<UserRow, UserInfo> table) {
         assertEquals(table.size(), 4);
         assertEquals(table.count(), 400);
@@ -49,6 +51,8 @@ public class DataTableTests extends StaticTestsInit {
         assertEquals(usersData.data(2), GRADY_BROCK);
         assertEquals(usersData.data("Grady Brock"), GRADY_BROCK);
         assertEquals(usersData.data(d -> d.name.contains("Brock")), GRADY_BROCK);
+        usersData.assertThat().row(d -> d.equals(GRADY_BROCK));
+        usersData.has().row(GRADY_BROCK);
         /*
         List<UserInfo> filteredData = usersData.datas(d -> d.name.contains("Brock"));
         assertEquals(filteredData.size(), 1);

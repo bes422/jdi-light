@@ -1,7 +1,7 @@
 package org.mytests.tests.example;
 
 import org.mytests.tests.SimpleTestsInit;
-import org.mytests.tests.preconditions.Preconditions;
+import org.mytests.tests.states.States;
 import org.testng.annotations.Test;
 
 import static org.mytests.uiobjects.example.entities.LeftMenuData.*;
@@ -12,7 +12,7 @@ public class MenuTests extends SimpleTestsInit {
 
     @Test
     public void menuTest() {
-        Preconditions.shouldBeLoggedIn();
+        States.shouldBeLoggedIn();
         homePage.shouldBeOpened();
         leftMenu.select(Service, Dates);
         datesPage.checkOpened();
@@ -21,10 +21,10 @@ public class MenuTests extends SimpleTestsInit {
     }
     @Test
     public void customMenuTest() {
-        Preconditions.shouldBeLoggedIn();
+        States.shouldBeLoggedIn();
         homePage.shouldBeOpened();
         menu.select(ContactForm);
-        assertEquals(menu.isSelected(), ContactForm.value);
+        assertEquals(menu.selected(), ContactForm.value);
         menu.select(Service, Dates);
         menu.is().selected(Dates.value);
         datesPage.checkOpened();

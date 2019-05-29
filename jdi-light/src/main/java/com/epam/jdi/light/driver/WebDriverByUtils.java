@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.SearchContext;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.Quotes;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -93,9 +94,9 @@ public final class WebDriverByUtils {
                 : byValue;
     }
     public static String shortBy(By by) {
-        return by == null
+        return (by == null
                 ? "No locator"
-                : format("%s='%s'", getByName(by), getByLocator(by));
+                : format("%s='%s'", getByName(by), getByLocator(by))).replaceAll("%s", "VALUE");
     }
     public static By getByFromString(String stringLocator) {
         if (stringLocator == null || stringLocator.equals(""))
@@ -157,7 +158,10 @@ public final class WebDriverByUtils {
         } catch (Exception ex) { throw exception("Search By failed"); }
     }
     public static By defineLocator(String locator) {
-        return locator.length() > 1 && (locator.charAt(1) == '/' || locator.substring(0,2).equals(".."))
+        String by = locator.contains("*root*")
+            ? locator.replaceAll("\\*root\\*", "")
+            : locator;
+        return by.length() > 1 && (by.charAt(1) == '/' || by.substring(0,2).equals(".."))
                 ? By.xpath(locator)
                 : By.cssSelector(locator);
     }
@@ -243,4 +247,12 @@ public final class WebDriverByUtils {
         return result;
     }
 
+    public static By byText(String text) {
+        return By.xpath(".//*/text()[normalize-space(.) = " +
+                Quotes.escape(text) + "]/parent::*");
+    }
+    public static By withText(String text) {
+        return By.xpath(".//*/text()[contains(normalize-space(.), "+
+                Quotes.escape(text)+")]/parent::*");
+    }
 }

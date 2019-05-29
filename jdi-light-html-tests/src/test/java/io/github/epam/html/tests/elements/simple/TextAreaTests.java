@@ -8,7 +8,7 @@ import static io.github.com.StaticSite.html5Page;
 import static io.github.com.pages.HtmlElementsPage.disabledTextArea;
 import static io.github.com.pages.HtmlElementsPage.textArea;
 import static io.github.epam.html.tests.elements.BaseValidations.baseValidation;
-import static io.github.epam.html.tests.site.steps.Preconditions.shouldBeLoggedIn;
+import static io.github.epam.html.tests.site.steps.States.shouldBeLoggedIn;
 import static java.util.Arrays.asList;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -71,6 +71,13 @@ public class TextAreaTests extends TestsInit {
     public void disabledTest() {
         disabledTextArea.setText(text);
         assertEquals(textArea.getText(), "");
+    }
+
+    @Test
+    public void addNewLineTest(){
+        textArea.setLines("line1", "line2");
+        textArea.addNewLine("line3");
+        assertEquals(textArea.getText(), "line1\nline2\nline3");
     }
 
     @Test

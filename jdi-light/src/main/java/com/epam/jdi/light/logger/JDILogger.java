@@ -5,6 +5,7 @@ package com.epam.jdi.light.logger;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
+import com.epam.jdi.tools.Safe;
 import com.epam.jdi.tools.func.JAction;
 import com.epam.jdi.tools.func.JFunc;
 import com.epam.jdi.tools.map.MapArray;
@@ -49,51 +50,47 @@ public class JDILogger implements ILogger {
         this(clazz.getSimpleName());
     }
 
-    private LogLevels logLevel = INFO;
+    private Safe<LogLevels> logLevel = new Safe<>(INFO);
 
     public LogLevels getLogLevel() {
-        return logLevel;
+        return logLevel.get();
     }
-    public void setLogLevel(LogLevels logLevel) {
-        this.logLevel = logLevel;
-        this.currentLevel = logLevel;
-        setRootLevel(getLog4j2Level(logLevel));
+    public void setLogLevel(LogLevels level) {
+        logLevel = new Safe<>(level);
+        setRootLevel(getLog4j2Level(level));
     }
-    private LogLevels currentLevel = INFO;
-    private int logOffDeepness = 0;
+    private Safe<Integer> logOffDeepness = new Safe<>(0);
+
     public void logOff() {
-        if (logOffDeepness == 0) {
-            currentLevel = logLevel;
-            logLevel = OFF;
-        }
-        logOffDeepness ++;
+        logLevel.set(OFF);
+        logOffDeepness.update(v->v+1);
     }
     public void logOn() {
-        logOffDeepness --;
-        if (logOffDeepness > 0) return;
-        if (logOffDeepness == 0)
-            logLevel = currentLevel;
-        if (logOffDeepness <0)
+        logOffDeepness.update(v->v-1);
+        if (logOffDeepness.get() > 0) return;
+        if (logOffDeepness.get() == 0)
+            logLevel.reset();
+        if (logOffDeepness.get() < 0)
             throw new RuntimeException("Log Off Deepness to high. Please check that each logOff has appropriate logOn");
     }
     public void dropLogOff() {
-        logOffDeepness = 0;
-        logLevel = currentLevel;
+        logOffDeepness.set(0);
+        logLevel.reset();
     }
     public void logOff(JAction action) {
         logOff(() -> { action.invoke(); return null; });
     }
     public <T> T logOff(JFunc<T> func) {
-        LogLevels currentLevel = logLevel;
-        if (logLevel == OFF) {
+        LogLevels tempLevel = logLevel.get();
+        if (logLevel.get() == OFF) {
             try { return func.invoke();
             } catch (Exception ex) { throw new RuntimeException(ex); }
         }
-        logLevel = OFF;
+        logLevel.set(OFF);
         T result;
         try{ result = func.invoke(); }
         catch (Exception ex) {throw new RuntimeException(ex); }
-        logLevel = currentLevel;
+        logLevel.set(tempLevel);
         return result;
     }
     private String name;
@@ -121,24 +118,24 @@ public class JDILogger implements ILogger {
     }
 
     public void step(String s, Object... args) {
-        if (logLevel.equalOrLessThan(STEP)) {
+        if (logLevel.get().equalOrLessThan(STEP)) {
             logger.log(Level.forName("STEP", 350), jdiMarker, getRecord(s, args));
             writeToAllure(getRecord(s, args));
         }
     }
 
     public void trace(String s, Object... args) {
-        if (logLevel.equalOrLessThan(TRACE)) {
+        if (logLevel.get().equalOrLessThan(TRACE)) {
             logger.trace(jdiMarker, getRecord(s, args));
         }
     }
     public void debug(String s, Object... args) {
-        if (logLevel.equalOrLessThan(DEBUG)) {
+        if (logLevel.get().equalOrLessThan(DEBUG)) {
             logger.debug(jdiMarker, getRecord(s, args));
         }
     }
     public void info(String s, Object... args) {
-        if (logLevel.equalOrLessThan(INFO)) {
+        if (logLevel.get().equalOrLessThan(INFO)) {
             logger.info(jdiMarker, getRecord(s, args));
         }
     }
@@ -147,10 +144,10 @@ public class JDILogger implements ILogger {
     }
 
     public void toLog(String msg) {
-        toLog(msg, currentLevel);
+        toLog(msg, logLevel.getDefault());
     }
     public void toLog(String msg, LogLevels level) {
-        if (logLevel.equalOrLessThan(level))
+        if (logLevel.get().equalOrLessThan(level))
             switch (level) {
                 case ERROR: error(msg); break;
                 case STEP: step(msg); break;

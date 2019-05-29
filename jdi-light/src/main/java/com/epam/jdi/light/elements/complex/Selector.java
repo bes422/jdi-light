@@ -1,14 +1,16 @@
 package com.epam.jdi.light.elements.complex;
 
-import com.epam.jdi.light.asserts.BaseSelectorAssert;
 import com.epam.jdi.light.asserts.SelectAssert;
 import com.epam.jdi.light.common.JDIAction;
 import com.epam.jdi.light.elements.base.BaseUIElement;
 import com.epam.jdi.light.elements.base.UIElement;
+import org.apache.logging.log4j.util.Strings;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 
 import java.util.List;
 
+import static com.epam.jdi.light.elements.init.UIFactory.$;
 import static com.epam.jdi.light.logger.LogLevels.DEBUG;
 import static com.epam.jdi.tools.EnumUtils.getEnumValues;
 import static com.epam.jdi.tools.LinqUtils.ifSelect;
@@ -17,7 +19,8 @@ import static com.epam.jdi.tools.PrintUtils.print;
 import static java.util.Arrays.asList;
 
 public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
-    implements BaseSelectorAssert, ISelector {
+    implements ISelector {
+    public static By LABEL_LOCATOR = By.xpath(".//label[text()='%s']");
 
     public Selector() { }
     public Selector(WebElement el) { super(el); }
@@ -43,7 +46,7 @@ public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
     }
 
     /**
-     * Selects only particular elements
+     * Check that only particular elements are selected
      * @param values String var arg, elements with text to select
      */
     @JDIAction("Check '{0}' for '{name}'")
@@ -51,6 +54,16 @@ public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
         select().deselectAll();
         for (String value : values)
             select().selectByVisibleText(value);
+    }
+
+    /**
+     * Check the particular element is selected
+     * @param values String var arg, element with text to select
+     */
+    @JDIAction("Check '{0}' for '{name}'")
+    public void check(String values) {
+        if (Strings.isEmpty(values)) return;
+        check(values.split(","));
     }
 
     /**
@@ -98,10 +111,19 @@ public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
         }
     }
 
+    /**
+     * Get checked elements
+     * @return List
+     */
     @JDIAction("Get checked elements")
     public List<String> checked() {
         return map(select().getAllSelectedOptions(), WebElement::getText);
     }
+
+    /**
+     * Get selected element value
+     * @return String
+     */
     @JDIAction("Get selected value")
     public String selected() {
         return select().getFirstSelectedOption().getText();
@@ -114,22 +136,45 @@ public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
     }
 
     /**
-     * Gets attr 'placeholder'
+     * Gets attribute 'placeholder'
      * @return String
      */
     @JDIAction(level = DEBUG)
     public String placeholder() { return getAttribute("placeholder"); }
 
+    /**
+     * Get the elements values
+     * @return List
+     */
     @JDIAction(level = DEBUG)
     public List<String> values() {
         return map(select().getOptions(), WebElement::getText);
     }
 
+    /**
+     * Get the elements values
+     * @return List
+     */
+    @JDIAction(level = DEBUG)
+    public List<String> innerValues() {
+        return map(select().getOptions(), w -> $(w).innerText());
+    }
+    public int size() { return select().getOptions().size(); }
+
+    /**
+     * Get the list of enabled elements
+     * @return List
+     */
     @JDIAction(level = DEBUG)
     public List<String> listEnabled() {
         List<UIElement> els = getUI().finds("option");
         return ifSelect(els, UIElement::isEnabled, UIElement::getText);
     }
+
+    /**
+     * Get the list of disabled elements
+     * @return List
+     */
     @JDIAction(level = DEBUG)
     public List<String> listDisabled() {
         return ifSelect(getUI().finds("option"),
@@ -148,10 +193,6 @@ public class Selector<T extends BaseUIElement> extends BaseUIElement<T>
     }
 
     public SelectAssert is() {
-        return new SelectAssert(this);
+        return new SelectAssert(() -> this);
     }
-    public SelectAssert assertThat() {
-        return is();
-    }
-
 }

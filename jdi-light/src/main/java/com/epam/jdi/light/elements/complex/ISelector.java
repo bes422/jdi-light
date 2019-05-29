@@ -5,10 +5,11 @@ import com.epam.jdi.light.elements.interfaces.INamed;
 
 import java.util.List;
 
-public interface ISelector extends BaseElement, INamed {
+public interface ISelector extends BaseElement, INamed, IHasSize {
     boolean selected(String option);
     List<String> checked();
     List<String> values();
+    List<String> innerValues();
     List<String> listEnabled();
     List<String> listDisabled();
     WebList allUI(Object... args);

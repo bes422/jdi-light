@@ -1,7 +1,7 @@
 package io.github.epam.html.tests.site;
 
 import io.github.epam.TestsInit;
-import io.github.epam.html.tests.site.steps.Preconditions;
+import io.github.epam.html.tests.site.steps.States;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -22,7 +22,7 @@ public class ComplexElementsTests extends TestsInit {
 
     @BeforeMethod
     public void before() {
-        Preconditions.shouldBeLoggedIn();
+        States.shouldBeLoggedIn();
         metalAndColorsPage.shouldBeOpened();
     }
     @Test
@@ -37,7 +37,6 @@ public class ComplexElementsTests extends TestsInit {
         navigation.get(nContactForm).click();
         contactFormPage.checkOpened();
         navigation.get(nHome).click();
-        System.out.println(jdiText.getText());
         jdiText.is().text(containsString("QUIS NOSTRUD EXERCITATION"));
         githubLink.click();
         originalWindow();
@@ -53,8 +52,6 @@ public class ComplexElementsTests extends TestsInit {
     @Test
     public void navigationMenuTest() {
         navigationL.select(ContactForm);
-        navigationL.get(0).click();
-        //navigationL.select("Contact form");
         contactFormPage.checkOpened();
         navigationL.select(Home);
         homePage.checkOpened();

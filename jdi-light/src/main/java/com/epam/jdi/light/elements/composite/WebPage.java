@@ -4,10 +4,11 @@ import com.epam.jdi.light.common.CheckTypes;
 import com.epam.jdi.light.common.JDIAction;
 import com.epam.jdi.light.common.PageChecks;
 import com.epam.jdi.light.elements.base.DriverBase;
-import com.epam.jdi.light.elements.interfaces.INamed;
+import com.epam.jdi.light.elements.interfaces.PageObject;
 import com.epam.jdi.light.elements.pageobjects.annotations.Title;
 import com.epam.jdi.light.elements.pageobjects.annotations.Url;
 import com.epam.jdi.tools.CacheValue;
+import com.epam.jdi.tools.Safe;
 import com.epam.jdi.tools.func.JAction1;
 import com.epam.jdi.tools.map.MapArray;
 
@@ -37,7 +38,7 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
  * Email: roman.iovlev.jdi@gmail.com; Skype: roman.iovlev
  */
 
-public class WebPage extends DriverBase implements INamed {
+public class WebPage extends DriverBase implements PageObject {
     public String url = "";
     public String title = "";
 
@@ -48,7 +49,7 @@ public class WebPage extends DriverBase implements INamed {
         return new Form<>().setPageObject(this).setName(getName()+" Form");
     }
 
-    private static ThreadLocal<String> currentPage = new ThreadLocal<>();
+    private static Safe<String> currentPage = new Safe<>("Undefined Page");
     public static String getCurrentPage() { return currentPage.get(); }
     public static void setCurrentPage(WebPage page) {
         currentPage.set(page.getName());
@@ -60,11 +61,19 @@ public class WebPage extends DriverBase implements INamed {
         new WebPage(url).open();
     }
 
+    /**
+     * Get Web page URL
+     * @return String
+     */
     @JDIAction(level = DEBUG)
     public static String getUrl() {
         return getDriver().getCurrentUrl();
     }
 
+    /**
+     * Get Web page title
+     * @return String
+     */
     @JDIAction(level = DEBUG)
     public static String getTitle() {
         return getDriver().getTitle();
@@ -100,6 +109,7 @@ public class WebPage extends DriverBase implements INamed {
 
     /**
      * Opens url specified for page
+     * @param url
      */
     @JDIAction("Open '{name}'(url={0})")
     private void open(String url) {
@@ -144,6 +154,10 @@ public class WebPage extends DriverBase implements INamed {
         setCurrentPage(this);
     }
 
+    /**
+     * Check the page is opened
+     * @return boolean
+     */
     @JDIAction(level = DEBUG)
     public boolean isOpened() {
         if (!hasRunDrivers())
@@ -169,13 +183,18 @@ public class WebPage extends DriverBase implements INamed {
     }
 
     public void shouldBeOpened() {
-        openePage(url);
+        openedPage(url);
     }
     public void shouldBeOpened(Object... params) {
-        openePage(getUrlWithParams(params));
+        openedPage(getUrlWithParams(params));
     }
+
+    /**
+     * Check the page is opened
+     * @param url
+     */
     @JDIAction("'{name}'(url={0}) should be opened")
-    private void openePage(String url) {
+    private void openedPage(String url) {
         if (isOpened()) return;
         open(url);
         checkOpened();
@@ -197,7 +216,6 @@ public class WebPage extends DriverBase implements INamed {
         getDriver().navigate().back();
     }
 
-
     /**
      * Go forward to next page
      */
@@ -206,41 +224,82 @@ public class WebPage extends DriverBase implements INamed {
         getDriver().navigate().forward();
     }
 
+    /**
+     * Scale the page by the specific factor
+     * @param factor
+     */
     @JDIAction(level = DEBUG)
     public static void zoom(double factor) {
         jsExecute("document.body.style.transform = 'scale(' + arguments[0] + ')';" +
                         "document.body.style.transformOrigin = '0 0';", factor);
     }
+
+    /**
+     * Get page html
+     * @return String
+     */
     @JDIAction
     public static String getHtml() {
         return getDriver().getPageSource();
     }
 
+    /**
+     * Scroll screen on specific values
+     * @param x
+     * @param y
+     */
     @JDIAction(level = DEBUG)
     private static void scroll(int x, int y) {
         jsExecute("window.scrollBy("+x+","+y+")");
     }
+
+    /**
+     * Scroll screen to top
+     */
     @JDIAction
     public static void scrollToTop() {
         jsExecute("window.scrollTo(0,0)");
     }
+
+    /**
+     * Scroll screen to bottom
+     */
     @JDIAction
     public static void scrollToBottom() {
         jsExecute("window.scrollTo(0,document.body.scrollHeight)");
     }
 
+    /**
+     * Scroll screen down on specific values
+     * @param value
+     */
     @JDIAction("Scroll screen down on '{0}'")
     public static void scrollDown(int value) {
         scroll(0,value);
     }
+
+    /**
+     * Scroll screen up on specific values
+     * @param value
+     */
     @JDIAction("Scroll screen up on '{0}'")
     public static void  scrollUp(int value) {
         scroll(0,-value);
     }
+
+    /**
+     * Scroll screen to the right on specific values
+     * @param value
+     */
     @JDIAction("Scroll screen to the right on '{0}'")
     public static void  scrollRight(int value) {
         scroll(value,0);
     }
+
+    /**
+     * Scroll screen to the left on specific values
+     * @param value
+     */
     @JDIAction("Scroll screen to the left on '{0}'")
     public static void scrollLeft(int value) {
         scroll(-value,0);
@@ -318,7 +377,7 @@ public class WebPage extends DriverBase implements INamed {
         logger.toLog("Page: " + page.getName());
         TIMEOUT.set(PAGE_TIMEOUT.get());
     };
-    public static JAction1<WebPage> BEFORE_EACH_PAGE = page -> {
+    public static JAction1<WebPage> BEFORE_THIS_PAGE = page -> {
         if (CHECK_AFTER_OPEN == EVERY_PAGE)
             page.checkOpened();
     };

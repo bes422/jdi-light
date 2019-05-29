@@ -10,6 +10,7 @@ import com.epam.jdi.light.elements.base.DriverBase;
 import com.epam.jdi.light.elements.base.JDIElement;
 import com.epam.jdi.light.elements.composite.WebPage;
 import com.epam.jdi.light.logger.LogLevels;
+import com.epam.jdi.tools.PrintUtils;
 import com.epam.jdi.tools.func.JAction1;
 import com.epam.jdi.tools.func.JFunc;
 import com.epam.jdi.tools.func.JFunc1;
@@ -23,7 +24,6 @@ import org.aspectj.lang.reflect.MethodSignature;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,8 +34,7 @@ import static com.epam.jdi.light.elements.composite.WebPage.*;
 import static com.epam.jdi.light.logger.LogLevels.STEP;
 import static com.epam.jdi.light.settings.WebSettings.logger;
 import static com.epam.jdi.tools.ReflectionUtils.*;
-import static com.epam.jdi.tools.StringUtils.msgFormat;
-import static com.epam.jdi.tools.StringUtils.splitLowerCase;
+import static com.epam.jdi.tools.StringUtils.*;
 import static com.epam.jdi.tools.map.MapArray.IGNORE_NOT_UNIQUE;
 import static com.epam.jdi.tools.map.MapArray.map;
 import static com.epam.jdi.tools.pairs.Pair.$;
@@ -90,6 +89,7 @@ public class ActionHelper {
         BEFORE_STEP_ACTION.execute(jp);
         processNewPage(jp);
     };
+
     public static int CUT_STEP_TEXT = 70;
     public static JFunc2<ProceedingJoinPoint, Object, Object> AFTER_STEP_ACTION = (jp, result) -> {
         if (!logResult(jp)) return result;
@@ -104,12 +104,15 @@ public class ActionHelper {
         return result;
     };
     private static boolean logResult(ProceedingJoinPoint jp) {
-        Class<?> cl = jp.getThis() != null
-            ? jp.getThis().getClass()
-            : jp.getSignature().getDeclaringType();
+        Class<?> cl = getJpClass(jp);
         if (!isInterface(cl, JDIElement.class)) return false;
         JDIAction ja = ((MethodSignature)jp.getSignature()).getMethod().getAnnotation(JDIAction.class);
         return ja != null && ja.logResult();
+    }
+    static Class<?> getJpClass(ProceedingJoinPoint jp) {
+        return jp.getThis() != null
+                ? jp.getThis().getClass()
+                : jp.getSignature().getDeclaringType();
     }
 
     public static JFunc2<ProceedingJoinPoint, Object, Object> AFTER_JDI_ACTION =
@@ -126,7 +129,7 @@ public class ActionHelper {
         return toUpperCase(logString.charAt(0)) + logString.substring(1);
     }
 
-    private static void processNewPage(JoinPoint joinPoint) {
+    public static void processNewPage(JoinPoint joinPoint) {
         getWindows();
         Object element = joinPoint.getThis();
         if (element != null) { // TODO support static pages
@@ -137,7 +140,7 @@ public class ActionHelper {
                     setCurrentPage(page);
                     BEFORE_NEW_PAGE.execute(page);
                 }
-                else BEFORE_EACH_PAGE.execute(page);
+                else BEFORE_THIS_PAGE.execute(page);
             }
         }
     }
@@ -188,16 +191,6 @@ public class ActionHelper {
         return format("%s%s", method, stringArgs);
     }
 
-    static String arrayToString(Object array) {
-        String result = "";
-        boolean first = true;
-        for(Object a : (Object[])array) {
-            if (first) first = false;
-            else result += ",";
-            result += a.toString();
-        }
-        return result;
-    }
     static MapArray<String, Object> methodArgs(JoinPoint joinPoint, MethodSignature method) {
         return toMap(() -> new MapArray<>(method.getParameterNames(), getArgs(joinPoint)));
     }
@@ -216,69 +209,26 @@ public class ActionHelper {
         for (int i = 0; i< args.length; i++)
             result[i] = Switch(args[i]).get(
                 Case(Objects::isNull, null),
-                Case(arg -> arg.getClass().isArray(), ActionHelper::printArray),
+                Case(arg -> arg.getClass().isArray(), PrintUtils::printArray),
                 Case(arg -> isInterface(arg.getClass(), List.class),
-                        ActionHelper::printList),
+                        PrintUtils::printList),
                 Default(arg -> arg));
         return result;
-    }
-
-    private static String printList(Object obj) {
-        List<?> list = (List<?>)obj;
-        String result = "[";
-        for (int i=0; i<list.size()-1;i++)
-            result += list.get(i)+", ";
-        return result + list.get(list.size()-1) + "]";
-    }
-    private static String printArray(Object array) {
-        try {
-            return Arrays.toString((int[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((Integer[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((String[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((boolean[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((Boolean[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((float[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((Float[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((double[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((Double[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((char[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((byte[])array);
-        } catch (Exception ex) {}
-        try {
-            return Arrays.toString((Byte[])array);
-        } catch (Exception ex) {}
-        return "";
     }
 
     static MapArray<String, Object> classFields(JoinPoint joinPoint) {
         return toMap(()->new MapArray<>(getThisFields(joinPoint), Field::getName, value -> getValueField(value, joinPoint.getThis())));
     }
 
-    static String getElementName(JoinPoint joinPoint) {
-        Object obj = joinPoint.getThis();
+    static String getElementName(JoinPoint jp) {
+        if (classFields(jp).keys().contains("jdi_element"))
+            return classFields(jp).get("jdi_element").toString();
+        Object obj = jp.getThis();
         return obj != null
                 ? obj.toString()
-                : joinPoint.getSignature().getDeclaringType().getSimpleName();
+                //obj.toString().matches(".*\\.\\w++@\\w+")
+                : jp.getSignature().getDeclaringType().getSimpleName();
+
     }
     static List<Field> getThisFields(JoinPoint joinPoint) {
         Object obj = joinPoint.getThis();

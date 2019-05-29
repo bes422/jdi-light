@@ -1,5 +1,7 @@
 package com.epam.jdi.light.elements.base;
 
+import com.epam.jdi.light.asserts.IHasAssert;
+import com.epam.jdi.light.asserts.IsAssert;
 import com.epam.jdi.light.elements.interfaces.HasValue;
 import com.epam.jdi.tools.func.JFunc1;
 import com.epam.jdi.tools.map.MapArray;
@@ -24,8 +26,8 @@ public interface BaseElement extends JDIElement, HasValue {
     MapArray<String, String> getAllAttributes();
     MapArray<String, String> attrs();
     void setAttribute(String name, String value);
-    void higlight(String color);
-    void higlight();
+    void highlight(String color);
+    void highlight();
     String printHtml();
     void show();
     Select select();
@@ -33,4 +35,5 @@ public interface BaseElement extends JDIElement, HasValue {
     void actions(JFunc1<Actions, Actions> actions);
     boolean wait(JFunc1<BaseElement, Boolean> condition);
     List<String> classes();
+    boolean hasClass(String className);
 }

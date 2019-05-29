@@ -9,11 +9,6 @@
     <name>JDI Web Tests</name>
     <groupId>com.epam.jdi</groupId>
 
-    <!--parent>
-        <version>1.0.22</version>
-        <artifactId>jdi-2</artifactId>
-    </parent-->
-
     <properties>
         <driver>chrome</driver>
         <allure.testng>2.7.0</allure.testng>
@@ -26,7 +21,7 @@
         <dependency>
             <groupId>com.epam.jdi</groupId>
             <artifactId>jdi-light</artifactId>
-            <version>1.0.35</version>
+            <version>1.0.63</version>
         </dependency>
 
         <!--Allure config in parent-->
@@ -54,7 +49,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>${allure.maven}</version>
+                <version>2.22.1</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/general.xml</suiteXmlFile>
+                    </suiteXmlFiles>
+                </configuration>
             </plugin>
 
             <plugin>

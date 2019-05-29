@@ -13,7 +13,7 @@ import static io.github.epam.entities.Users.DEFAULT_USER;
 public class Preconditions {
     @Step
     public static void shouldBeLoggedIn() {
-        if (!WebPage.getUrl().contains("https://epam.github.io/JDI/"))
+        if (!WebPage.getUrl().contains("https://jdi-testing.github.io/jdi-light/"))
             homePage.open();
         if (!userName.isDisplayed())
             login();
@@ -25,14 +25,15 @@ public class Preconditions {
     }
     @Step
     public static void shouldBeLoggedOut() {
-        if (!WebPage.getUrl().contains("https://epam.github.io/JDI/"))
+        if (!WebPage.getUrl().contains("https://jdi-testing.github.io/jdi-light/"))
             homePage.open();
         if (userName.isDisplayed())
             logout();
     }
     @Step
     public static void logout() {
-        userIcon.click();
+        if (!logout.isDisplayed())
+            userIcon.click();
         logout.click();
     }
 }

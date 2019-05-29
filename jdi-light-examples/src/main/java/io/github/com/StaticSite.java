@@ -16,7 +16,7 @@ import java.util.List;
 import static com.epam.jdi.light.common.CheckTypes.CONTAINS;
 import static com.epam.jdi.light.common.CheckTypes.MATCH;
 
-@JSite("https://epam.github.io/JDI/")
+@JSite("https://jdi-testing.github.io/jdi-light/")
 public class StaticSite {
 	@Url("/index.html")  @Title(value = "Home", validate = CONTAINS)
 	public static HomePage homePage;
@@ -28,6 +28,8 @@ public class StaticSite {
 	public static ContactFormPage contactFormPage;
 	@Url("/performance.html") @Title("Performance page")
 	public static PerformancePage tablePage;
+	@Url("/search.html")
+	public static SearchPage searchPage;
 
 	@Css("[ui=label]") public static List<WebElement> navigation;
 	@Css("[ui=label]") public static WebList navigationL;

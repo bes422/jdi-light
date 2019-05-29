@@ -2,6 +2,7 @@ package com.epam.jdi.light.elements.composite;
 
 import com.epam.jdi.light.common.FormFilters;
 import com.epam.jdi.light.common.JDIAction;
+import com.epam.jdi.light.elements.base.BaseUIElement;
 import com.epam.jdi.light.elements.base.UIElement;
 import com.epam.jdi.light.elements.interfaces.HasValue;
 import com.epam.jdi.light.elements.interfaces.SetValue;
@@ -25,8 +26,7 @@ import static com.epam.jdi.light.elements.pageobjects.annotations.WebAnnotations
 import static com.epam.jdi.light.elements.pageobjects.annotations.WebAnnotationsUtil.hasAnnotation;
 import static com.epam.jdi.tools.LinqUtils.first;
 import static com.epam.jdi.tools.PrintUtils.print;
-import static com.epam.jdi.tools.ReflectionUtils.getFields;
-import static com.epam.jdi.tools.ReflectionUtils.getValueField;
+import static com.epam.jdi.tools.ReflectionUtils.*;
 import static com.epam.jdi.tools.StringUtils.LINE_BREAK;
 import static com.epam.jdi.tools.StringUtils.namesEqual;
 import static java.lang.String.format;
@@ -69,7 +69,7 @@ public class Form<T> extends Section {
         List<Field> allFields = allFields();
         if (allFields.size() == 0) {
             for (Pair<String, String> pair : map) {
-                UIElement element = new UIElement().setName(pair.key);
+                UIElement element = new UIElement().setParent(this).setName(pair.key);
                 fillAction(null, element, pageObject, pair.value);
             }
             return;
@@ -102,7 +102,7 @@ public class Form<T> extends Section {
                 return LinqUtils.where(getFields(obj, SetValue.class),
                         field -> !hasAnnotation(field, Mandatory.class));
             default:
-                return getFields(obj, SetValue.class, WebElement.class);
+                return getFieldsInterfaceOf(obj, SetValue.class);
         }
     }
 
@@ -130,7 +130,7 @@ public class Form<T> extends Section {
     protected List<String> verify(MapArray<String, String> map) {
         List<String> compareFalse = new ArrayList<>();
         for (Field field : allFields()) {
-            String fieldValue = map.first((name, value) ->
+            String fieldValue = map.firstValue((name, value) ->
                     namesEqual(name, getElementName(field)));
             if (fieldValue == null) continue;
             String actual = getAction(field, getValueField(field, pageObject), pageObject);
@@ -186,11 +186,24 @@ public class Form<T> extends Section {
      */
     @JDIAction("Submit '{name}' with value '{0}' and press '{1}' button")
     public void submit(String text, String buttonName) {
-        Field field = getFields(pageObject, SetValue.class).get(0);
+        List<Field> fields = getFields(pageObject, SetValue.class);
+        if (fields.isEmpty())
+            throw exception("Can't submit '%s' in form %s", text, this);
+        Field field = fields.get(0);
         FILL_ACTION.execute(field, getValueField(field, pageObject), pageObject, text);
         GET_BUTTON.execute(pageObject, buttonName).click();
     }
 
+    /**
+     * Allowed different buttons to send one form e.g. save/ publish / cancel / search update ...
+     */
+    @JDIAction("Submit '{name}' and press '{0}' button")
+    public void pressButton(String buttonName) {
+        GET_BUTTON.execute(pageObject, buttonName).click();
+    }
+    public void submit() {
+        pressButton("submit");
+    }
     /**
      * @param entity Specify entity
      *               Fill all SetValue elements and click on Button “submit” <br>
@@ -235,11 +248,14 @@ public class Form<T> extends Section {
      *               Fill all SetValue elements and click on Button “login” or ”loginButton” <br>
      * @apiNote To use this option Form pageObject should have only one IButton Element
      */
-    @JDIAction("Login in as {0}")
+    @JDIAction("Login as {0}")
     public void login(T entity) {
         submit(entity, "login");
     }
-
+    @JDIAction("Login")
+    public void login() {
+        GET_BUTTON.execute(pageObject, "login").click();
+    }
     /**
      * @param entity Specify entity
      *               Fill all SetValue elements and click on Button “login” or ”loginButton” <br>
@@ -260,6 +276,10 @@ public class Form<T> extends Section {
         submit(entity, "send");
     }
 
+    @JDIAction("Send '{name}'")
+    public void send() {
+        GET_BUTTON.execute(pageObject, "send").click();
+    }
     /**
      * @param entity Specify entity
      *               Fill all SetValue elements and click on Button “add” or ”addButton” <br>
@@ -360,5 +380,21 @@ public class Form<T> extends Section {
         submit(entity, "search");
     }
 
+    @Override
+    public boolean displayed() {
+        try {
+            if (webElement.hasValue())
+                return webElement.get().isDisplayed();
+            if (locator.isEmpty()) {
+                List<Field> fields = getFieldsInterfaceOf(pageObject, SetValue.class);
+                if (fields.isEmpty())
+                    return get().isDisplayed();
+                BaseUIElement first = (BaseUIElement) fields.get(0).get(pageObject);
+                return first.isDisplayed();
+            }
+            List<WebElement> result = getAll();
+            return result.size() == 1 && result.get(0).isDisplayed();
+        } catch (Exception ex) { return false; }
+    }
     //endregion
 }

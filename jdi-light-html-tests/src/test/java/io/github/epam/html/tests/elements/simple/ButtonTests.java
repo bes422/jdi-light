@@ -6,14 +6,15 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.epam.jdi.light.driver.WebDriverFactory.getDriver;
-import static com.epam.jdi.light.elements.base.WindowsManager.acceptAlert;
-import static com.epam.jdi.light.elements.base.WindowsManager.getAlertText;
+import static com.epam.jdi.light.elements.base.Alerts.acceptAlert;
+import static com.epam.jdi.light.elements.base.Alerts.getAlertText;
 import static com.epam.jdi.light.elements.composite.WebPage.refresh;
 import static com.epam.jdi.light.settings.TimeoutSettings.TIMEOUT;
 import static io.github.com.StaticSite.html5Page;
 import static io.github.com.pages.HtmlElementsPage.*;
-import static io.github.epam.html.tests.elements.BaseValidations.baseValidation;
-import static io.github.epam.html.tests.site.steps.Preconditions.shouldBeLoggedIn;
+import static io.github.epam.html.tests.elements.BaseValidations.*;
+import static io.github.epam.html.tests.site.steps.States.shouldBeLoggedIn;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.testng.Assert.assertEquals;
@@ -50,26 +51,24 @@ public class ButtonTests extends TestsInit {
 
         disabledButton.click();
         try {
-            TIMEOUT .set(1);
+            TIMEOUT.set(1);
             acceptAlert();
             fail("Disabled button should not work, but work");
-        } catch (Exception ex) { }
-        finally {
-            TIMEOUT.reset();
-        }
+        } catch (Exception ignore) { }
     }
-
     @Test
     public void isValidationTest() {
         redButton.is().displayed();
         redButton.is().enabled();
         redButton.is().text(is(text));
         redButton.is().text(containsString("Red Button"));
-        redButton.is()
-                .text(is(text))
-                .cssClass(is("uui-button red"))
-                .attr("type", is("button"))
-                .tag(is("input"));
+        assertThat(redButton.css("font-size"), is("14px"));
+        redButton.assertThat()
+            .text(is(text))
+            .css("font-size", is("14px"))
+            .cssClass(is("uui-button red"))
+            .attr("type", is("button"))
+            .tag(is("input"));
         blueButton.is().text(containsString("Blue Button".toUpperCase()));
         disabledButton.is().text(containsString("Disabled Button".toUpperCase()));
         disabledButtonInput.is().text(containsString("Disabled Button"));
@@ -86,19 +85,64 @@ public class ButtonTests extends TestsInit {
         baseValidation(redButton);
     }
 
+    //if test fails then run `mvn clean install` in module JDI Light
     @Test
     public void suspendButtonTest() {
         refresh();
-        suspendButton.click();
+        durationMoreThan(3,
+            () -> suspendButton.click());
         assertEquals(getAlertText(), "Suspend button");
         acceptAlert();
     }
 
+    //if test fails then run `mvn clean install` in module JDI Light
     @Test
     public void vanishButtonTest() {
         refresh();
-        ghostButton.is().disappear();
+        durationMoreThan(3, () ->
+            ghostButton.is().disappear());
     }
+
+    //if test fails then run `mvn clean install` in module JDI Light
+    @Test
+    public void isNotAppearTimeoutFailedButtonTest() {
+        refresh();
+        try {
+            durationMoreThan(2, () ->
+                suspendButton.is().notAppear(2));
+        } catch (Exception ex) {
+            assertThat(ex.getMessage(), containsString("but: was \"displayed\""));
+        }
+    }
+
+    //if test fails then run `mvn clean install` in module JDI Light
+    @Test
+    public void isNotAppearFailedButtonTest() {
+        refresh();
+        try {
+            durationImmediately(() -> ghostButton.is().notAppear());
+        } catch (Exception ex) {
+            assertThat(ex.getMessage(), containsString("but: was \"displayed\""));
+        }
+    }
+
+    //if test fails then run `mvn clean install` in module JDI Light
+    @Test
+    public void isNotAppearButtonTest() {
+        ghostButton.is().hidden();
+        TIMEOUT.set(3);
+        durationMoreThan(3, () -> ghostButton.is().notAppear());
+    }
+
+    //if test fails then run `mvn clean install` in module JDI Light
+    @Test
+    public void isNotAppearTimeoutButtonTest() {
+        ghostButton.is().hidden();
+        durationMoreThan(2, () ->
+            ghostButton.is().notAppear(2));
+    }
+
+    //if test fails then run `mvn clean install` in module JDI Light
     @Test
     public void seleniumButtonTest() throws InterruptedException {
         refresh();

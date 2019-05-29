@@ -9,6 +9,7 @@ import com.epam.jdi.light.elements.pageobjects.annotations.Url;
 import com.epam.jdi.light.elements.pageobjects.annotations.simple.Css;
 import com.epam.jdi.light.elements.pageobjects.annotations.simple.JMenu;
 import com.epam.jdi.light.elements.pageobjects.annotations.simple.UI;
+import com.epam.jdi.light.ui.html.base.HtmlElement;
 import com.epam.jdi.light.ui.html.base.HtmlList;
 import com.epam.jdi.light.ui.html.complex.Menu;
 import io.github.com.custom.MenuItem;
@@ -19,7 +20,7 @@ import java.util.List;
 
 import static com.epam.jdi.light.common.CheckTypes.CONTAINS;
 
-@JSite("https://epam.github.io/JDI/")
+@JSite("https://jdi-testing.github.io/jdi-light/")
 public class StaticSite {
 	@Url("/index.html") public static HomePage homePage;
 	@Url("/metals-colors.html") @Title("Metal and Colors")
@@ -29,6 +30,7 @@ public class StaticSite {
 	@Url(value = "/html5/%s", template = "/html5/+*", validate = CONTAINS)
 	public static HtmlElementsPage htmlElementsPage2;
 	@Url("/html5.html") public static HtmlElementsPage html5Page;
+	@Url("/suspend-html-page.html") public static HtmlElementsPage suspendHtml5Page;
 	@Url("/dates.html") @Title("Dates")
 	public static DatesPage datesPage;
 	@Url("/user-table.html") @Title("User Table")
@@ -38,6 +40,7 @@ public class StaticSite {
 	@Css("[ui=label]") public static WebList navigationL;
 	@UI("[ui=label][*'%s']") public static HtmlList navigationS;
 	@UI(".sidebar-menu span<[*'%s']<<") public static Menu leftMenu;
+	@UI(".sidebar-menu span<[*'%s']<<") public static JList<HtmlElement> leftMenuList;
 	@UI(".sidebar-menu span") public static JList<MenuItem> menu;
 	@JMenu({"[ui=label][*'%s']", "[ui=label][*'%s']"}) public static Menu leftMenu2D;
 

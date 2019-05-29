@@ -1,5 +1,6 @@
 package com.epam.jdi.light.common;
 
+import com.epam.jdi.light.elements.base.JDIBase;
 import org.openqa.selenium.By;
 
 import static com.epam.jdi.light.common.Exceptions.exception;
@@ -17,10 +18,12 @@ public class JDILocator {
     private LocatorType locatorType = DEFAULT;
     private By byLocator;
     public boolean isRoot = false;
-    private String name;
+    private JDIBase element;
+    private Object[] args = new Object[]{};
 
     public By getLocator() { return byLocator; }
     public By getLocator(Object... args) {
+        this.args = args;
         if (args.length == 0) return byLocator;
         return args.length == 1
                 ? fillByTemplate(byLocator, args)
@@ -41,15 +44,15 @@ public class JDILocator {
 
     public JDILocator() {
     }
-    public JDILocator(By locator, String name) {
-        this(locator, DEFAULT, name);
+    public JDILocator(By locator, JDIBase element) {
+        this(locator, DEFAULT, element);
     }
-    public JDILocator(By locator, LocatorType type, String name) {
+    public JDILocator(By locator, LocatorType type, JDIBase element) {
         locatorType = type;
         byLocator = setRootLocator(locator)
                 ? trimRoot(locator)
                 : locator;
-        this.name = name;
+        this.element = element;
     }
     public boolean isTemplate() {
         return byLocator != null && byLocator.toString().contains("%s");
@@ -70,18 +73,18 @@ public class JDILocator {
     @Override
     public String toString() {
         try {
-            if (!hasDomain() && locatorType == DEFAULT)
-                return "No Locators";
+            By locator = getLocator(args);
+            if (locator == null || !hasDomain() && locatorType == DEFAULT)
+                return "";
             String isFrame = "";
-            By locator = getLocator();
             if (locatorType == FRAME) {
                 isFrame = "Frame: ";
                 locator = getFrame();
             }
             String shortLocator = locator != null
                     ? shortBy(locator)
-                    : print(select(SMART_SEARCH_LOCATORS, l -> format(l, splitHyphen(name))), " or ");
-            return isFrame + shortLocator;
+                    : print(select(SMART_SEARCH_LOCATORS, l -> format(l, splitHyphen(element.name))), " or ");
+            return isFrame + shortLocator.replaceAll("%s", "VALUE");
         } catch (Exception ex) { throw exception("Can't print locator: " + ex.getMessage()); }
     }
 }
